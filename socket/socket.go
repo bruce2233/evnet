@@ -62,6 +62,10 @@ func GetTCPSockAddr(proto, addr string) (sa unix.Sockaddr, family int, tcpAddr *
 	return
 }
 
+type Socket interface {
+	Fd() int
+}
+
 func TcpSocket(proto, addr string, passive bool) (fd int, netAddr net.Addr, err error) {
 	var (
 		family int

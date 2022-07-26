@@ -23,7 +23,9 @@
 package reactor
 
 import (
-	"evnet/socket"
+	. "evnet/connection"
+	. "evnet/socket"
+	"math/rand"
 	"net"
 	"os"
 
@@ -31,7 +33,7 @@ import (
 )
 
 type MainReactor struct {
-	subReactors  []SubReactor
+	subReactors  []*SubReactor
 	poller       *Poller
 	listenerFd   int
 	eventHandler EventHandler
@@ -40,11 +42,12 @@ type MainReactor struct {
 type SubReactor struct {
 	poller       *Poller
 	eventHandler EventHandler
+	connections  map[int]Conn
 }
 
 type EventHandler interface {
 	//working
-	HandleConn(conn *net.Conn)
+	HandleConn(conn Conn)
 }
 
 type Poller struct {
@@ -61,6 +64,8 @@ const (
 	writeEvents     = unix.EPOLLOUT
 	readWriteEvents = readEvents | writeEvents
 )
+
+var SubReactorsNum = 2
 
 //create a new poller
 func OpenPoller() (poller *Poller, err error) {
@@ -90,14 +95,11 @@ func OpenPoller() (poller *Poller, err error) {
 //The proto paramater MUST be "tcp"
 //The addr parameter
 func (mainReactor *MainReactor) Listen(proto, addr string) (fd int, netAddr net.Addr, err error) {
-	fd, netAddr, err = socket.TcpSocket(proto, addr, true)
+	fd, netAddr, err = TcpSocket(proto, addr, true)
 	return
-	net.Listen()
 }
 
-func (mainReactor *MainReactor) SetListenerFd(fd int) {
-	mainReactor.listenerFd = fd
-}
+//Create poller and listener for mainReactor
 func (mainReactor *MainReactor) Init(proto, addr string) error {
 	//init poller
 	p, err := OpenPoller()
@@ -105,44 +107,86 @@ func (mainReactor *MainReactor) Init(proto, addr string) error {
 		return err
 	}
 	mainReactor.poller = p
-	println("init poller poller: ", p)
+	println("init main poller: ", p)
 
-	//init listen socket
-	fd, _, err := mainReactor.Listen(proto, addr)
-	mainReactor.SetListenerFd(fd)
-	println("set listener fd: ", fd)
+	//init subReactor
+	for i := 0; i < SubReactorsNum; i++ {
+		newSubReactor := &SubReactor{}
+		newSubReactor.poller, err = OpenPoller()
+		mainReactor.subReactors = append(mainReactor.subReactors, newSubReactor)
+	}
 	if err != nil {
 		return err
 	}
+	println("init sub poller")
+
+	// //start subReactor
+	// for i := 0; i < SubReactorsNum; i++ {
+	// 	go startSubReactor(mainReactor.subReactors[i])
+	// }
+
+	//init listen socket
+	listenerFd, _, err := mainReactor.Listen(proto, addr)
+	mainReactor.listenerFd = listenerFd
+	println("set listener fd: ", listenerFd)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
+func startSubReactor(subReactor *SubReactor) {
+	eventList := subReactor.poller.Polling()
+	for _, event := range eventList {
+		conn := subReactor.connections[int(event.Fd)]
+		subReactor.eventHandler.HandleConn(conn)
+	}
+}
+
 func (mainReactor *MainReactor) Loop() {
+	//add listenerFd epoll
 	mainReactor.poller.AddPollRead(mainReactor.listenerFd)
 	println("poller: ", mainReactor.poller, "add poll linstenerFd", mainReactor.listenerFd)
+
 	for {
 		println("start polling")
 		eventsList := mainReactor.poller.Polling()
 		//working
 		for _, v := range eventsList {
-			tcpAddr, err := AcceptSocket(int(v.Fd))
+			nfd, tcpAddr, err := AcceptSocket(int(v.Fd))
+			println(nfd)
 			println(tcpAddr.Network())
 			println(tcpAddr.String())
 			os.NewSyscallError("AcceptSocket Err", err)
-			// err := mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
+			//convert from nfd, tcpAddr to a socket
+			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
+			idx := rand.Intn(2)
+
+			addPollRead(mainReactor.subReactors[idx].poller.Fd, nfd)
 		}
 	}
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
-	err := unix.EpollCtl(poller.Fd, unix.EPOLL_CTL_ADD, pafd, &unix.EpollEvent{Fd: int32(pafd), Events: readEvents})
+	err := addPollRead(poller.Fd, pafd)
+	return err
+}
+func addPollRead(epfd int, fd int) error {
+	err := unix.EpollCtl(fd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Fd: int32(fd), Events: readEvents})
 	return os.NewSyscallError("AddPollRead Error", err)
 }
 
-func AcceptSocket(fd int) (net.Addr, error) {
+func registerConn(subReactor SubReactor, socket Socket) error {
+	// conn, err := NewConn(socket.Fd(),socket.)
+	// subReactor[]
+	return nil
+}
+
+func AcceptSocket(fd int) (int, net.Addr, error) {
 	nfd, sa, err := unix.Accept(fd)
 	if err = os.NewSyscallError("fcntl nonblock", unix.SetNonblock(nfd, true)); err != nil {
-		return nil, err
+		return -1, nil, err
 	}
 	switch sa.(type) {
 	case *unix.SockaddrInet4:
@@ -150,20 +194,23 @@ func AcceptSocket(fd int) (net.Addr, error) {
 		if !ok {
 			println("sa4 asset error")
 		}
-		return &net.TCPAddr{IP: sa4.Addr[:], Port: sa4.Port}, err
+		return nfd, &net.TCPAddr{IP: sa4.Addr[:], Port: sa4.Port}, err
 	}
-	return nil, nil
+	return -1, nil, err
 }
 
+//block
 func (poller *Poller) Polling() []unix.EpollEvent {
 	eventsList := make([]unix.EpollEvent, 128)
 
 	println(poller, "start waiting")
 	n, err := unix.EpollWait(poller.Fd, eventsList, -1)
 	println("epoll events num: ", n, err)
+	if err != nil {
+		println(err)
+	}
 	// for i := 0; i < n; i++ {
 	// 	println(eventsList[i].Fd, eventsList[i].Events)
-
 	// }
 	return eventsList[:n]
 }

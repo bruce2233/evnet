@@ -29,6 +29,10 @@ func TestMainRec(t *testing.T) {
 	m.Loop()
 }
 
+func TestStartSubReactor(t *testing.T) {
+	m := MainReactor{}
+	m.Init()
+}
 func TestEpollListener(t *testing.T) {
 	// socketFd, netAddr, err := TcpSocket("tcp", "127.0.0.1:8866", true)
 	m := new(MainReactor)
