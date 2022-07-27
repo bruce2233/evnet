@@ -33,9 +33,10 @@ func (conn *conn) Fd() int {
 	return conn.fd
 }
 
-func NewConn(fd int, addr net.Addr) (Conn, error) {
+func NewConn(fd int, la net.Addr, ra net.Addr) (Conn, error) {
 	conn := new(conn)
 	conn.fd = fd
-	conn.localAddr = addr
+	conn.localAddr = la
+	conn.remoteAddr = ra
 	return conn, nil
 }

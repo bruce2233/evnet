@@ -28,6 +28,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"runtime"
 
 	"golang.org/x/sys/unix"
 )
@@ -35,8 +36,8 @@ import (
 type MainReactor struct {
 	subReactors  []*SubReactor
 	poller       *Poller
-	listenerFd   int
 	eventHandler EventHandler
+	listener     Listener
 }
 
 type SubReactor struct {
@@ -118,68 +119,74 @@ func (mainReactor *MainReactor) Init(proto, addr string) error {
 	if err != nil {
 		return err
 	}
-	println("init sub poller")
-
-	// //start subReactor
-	// for i := 0; i < SubReactorsNum; i++ {
-	// 	go startSubReactor(mainReactor.subReactors[i])
-	// }
 
 	//init listen socket
-	listenerFd, _, err := mainReactor.Listen(proto, addr)
-	mainReactor.listenerFd = listenerFd
-	println("set listener fd: ", listenerFd)
+	listenerFd, _, err := TcpSocket(proto, addr, true)
+	mainReactor.listener.Fd = listenerFd
 	if err != nil {
-		return err
+		println(err)
 	}
+
+	//add listenerFd epoll
+	mainReactor.poller.AddPollRead(mainReactor.listener.Fd)
+
+	// //start subReactor
+	// for i := range mainReactor.subReactors {
+	// 	go startSubReactor(mainReactor.subReactors[i])
+	// }
 
 	return nil
 }
 
 func startSubReactor(subReactor *SubReactor) {
+	println("SubReactor start polling", subReactor.poller.Fd)
 	eventList := subReactor.poller.Polling()
 	for _, event := range eventList {
+		println(event.Fd, " event")
 		conn := subReactor.connections[int(event.Fd)]
 		subReactor.eventHandler.HandleConn(conn)
 	}
 }
 
 func (mainReactor *MainReactor) Loop() {
-	//add listenerFd epoll
-	mainReactor.poller.AddPollRead(mainReactor.listenerFd)
-	println("poller: ", mainReactor.poller, "add poll linstenerFd", mainReactor.listenerFd)
+
+	println("poller: ", mainReactor.poller, "add poll linstenerFd", mainReactor.listener.Fd)
 
 	for {
-		println("start polling")
+		println("main reactor start loop")
 		eventsList := mainReactor.poller.Polling()
 		//working
 		for _, v := range eventsList {
-			nfd, tcpAddr, err := AcceptSocket(int(v.Fd))
+			nfd, raddr, err := AcceptSocket(int(v.Fd))
 			println(nfd)
-			println(tcpAddr.Network())
-			println(tcpAddr.String())
+			println(raddr.Network())
+			println(raddr.String())
 			os.NewSyscallError("AcceptSocket Err", err)
 			//convert from nfd, tcpAddr to a socket
 			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
 			idx := rand.Intn(2)
-
-			addPollRead(mainReactor.subReactors[idx].poller.Fd, nfd)
+			laddr := mainReactor.listener.addr
+			conn, _ := NewConn(nfd, laddr, raddr)
+			registerConn(mainReactor.subReactors[idx], conn)
 		}
 	}
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
+	println("add poll read", "pollerFd: ", poller.Fd, "epolledFd: ", pafd)
 	err := addPollRead(poller.Fd, pafd)
 	return err
 }
+
 func addPollRead(epfd int, fd int) error {
-	err := unix.EpollCtl(fd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Fd: int32(fd), Events: readEvents})
+	err := unix.EpollCtl(epfd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Fd: int32(fd), Events: readEvents})
 	return os.NewSyscallError("AddPollRead Error", err)
 }
 
-func registerConn(subReactor SubReactor, socket Socket) error {
+func registerConn(subReactor *SubReactor, conn Conn) error {
 	// conn, err := NewConn(socket.Fd(),socket.)
 	// subReactor[]
+	subReactor.connections[conn.Fd()] = conn
 	return nil
 }
 
@@ -203,14 +210,22 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 func (poller *Poller) Polling() []unix.EpollEvent {
 	eventsList := make([]unix.EpollEvent, 128)
 
-	println(poller, "start waiting")
-	n, err := unix.EpollWait(poller.Fd, eventsList, -1)
-	println("epoll events num: ", n, err)
-	if err != nil {
-		println(err)
+	println("poller start waiting", poller.Fd)
+	var n int
+	for {
+		n, err := unix.EpollWait(poller.Fd, eventsList, -1)
+		println("epoll trigger")
+		// if return EINTR, EpollWait again
+		// debugging will trigger unix.EINTR error
+		if n < 0 && err == unix.EINTR {
+			runtime.Gosched()
+			continue
+		}
+		println("epoll events num: ", n, err)
+		if err != nil {
+			println(err)
+		}
+		break
 	}
-	// for i := 0; i < n; i++ {
-	// 	println(eventsList[i].Fd, eventsList[i].Events)
-	// }
 	return eventsList[:n]
 }
