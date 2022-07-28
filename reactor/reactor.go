@@ -46,11 +46,6 @@ type SubReactor struct {
 	connections  map[int]Conn
 }
 
-type EventHandler interface {
-	//working
-	HandleConn(conn Conn)
-}
-
 type Poller struct {
 	Fd  int
 	efd int
@@ -101,20 +96,21 @@ func (mainReactor *MainReactor) Listen(proto, addr string) (fd int, netAddr net.
 }
 
 //Create poller and listener for mainReactor
-func (mainReactor *MainReactor) Init(proto, addr string) error {
+func (mr *MainReactor) Init(proto, addr string) error {
 	//init poller
 	p, err := OpenPoller()
 	if err != nil {
 		return err
 	}
-	mainReactor.poller = p
+	mr.poller = p
 	println("init main poller: ", p)
 
 	//init subReactor
 	for i := 0; i < SubReactorsNum; i++ {
 		newSubReactor := &SubReactor{}
 		newSubReactor.poller, err = OpenPoller()
-		mainReactor.subReactors = append(mainReactor.subReactors, newSubReactor)
+		newSubReactor.connections = make(map[int]Conn)
+		mr.subReactors = append(mr.subReactors, newSubReactor)
 	}
 	if err != nil {
 		return err
@@ -122,30 +118,44 @@ func (mainReactor *MainReactor) Init(proto, addr string) error {
 
 	//init listen socket
 	listenerFd, _, err := TcpSocket(proto, addr, true)
-	mainReactor.listener.Fd = listenerFd
+	mr.listener.Fd = listenerFd
 	if err != nil {
 		println(err)
 	}
 
 	//add listenerFd epoll
-	mainReactor.poller.AddPollRead(mainReactor.listener.Fd)
+	mr.poller.AddPollRead(mr.listener.Fd)
 
-	// //start subReactor
-	// for i := range mainReactor.subReactors {
-	// 	go startSubReactor(mainReactor.subReactors[i])
-	// }
+	//start subReactor
+	for i := range mr.subReactors {
+		go startSubReactor(mr.subReactors[i])
+	}
 
+	//setEventHandler
+	beh := new(BuiltinEventHandler)
+	mr.eventHandler = beh
+	for i := range mr.subReactors {
+		mr.subReactors[i].eventHandler = beh
+	}
 	return nil
 }
 
-func startSubReactor(subReactor *SubReactor) {
-	println("SubReactor start polling", subReactor.poller.Fd)
-	eventList := subReactor.poller.Polling()
+func startSubReactor(sr *SubReactor) {
+	println("SubReactor start polling", sr.poller.Fd)
+	eventList := sr.poller.Polling()
 	for _, event := range eventList {
 		println(event.Fd, " event")
-		conn := subReactor.connections[int(event.Fd)]
-		subReactor.eventHandler.HandleConn(conn)
+		conn := sr.connections[int(event.Fd)]
+		sr.eventHandler.HandleConn(conn)
 	}
+}
+
+func (mr *MainReactor) SetEventHandler(eh EventHandler) {
+	setEventHandler(mr, eh)
+}
+
+func setEventHandler(mr *MainReactor, eh EventHandler) {
+	mr.eventHandler = eh
 }
 
 func (mainReactor *MainReactor) Loop() {
@@ -183,10 +193,11 @@ func addPollRead(epfd int, fd int) error {
 	return os.NewSyscallError("AddPollRead Error", err)
 }
 
-func registerConn(subReactor *SubReactor, conn Conn) error {
+func registerConn(sr *SubReactor, conn Conn) error {
 	// conn, err := NewConn(socket.Fd(),socket.)
 	// subReactor[]
-	subReactor.connections[conn.Fd()] = conn
+	sr.connections[conn.Fd()] = conn
+	sr.poller.AddPollRead(conn.Fd())
 	return nil
 }
 
@@ -212,8 +223,9 @@ func (poller *Poller) Polling() []unix.EpollEvent {
 
 	println("poller start waiting", poller.Fd)
 	var n int
+	var err error
 	for {
-		n, err := unix.EpollWait(poller.Fd, eventsList, -1)
+		n, err = unix.EpollWait(poller.Fd, eventsList, -1)
 		println("epoll trigger")
 		// if return EINTR, EpollWait again
 		// debugging will trigger unix.EINTR error

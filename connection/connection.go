@@ -11,6 +11,12 @@ type Conn interface {
 	io.Reader
 	io.Writer
 	Socket
+
+	// LocalAddr is the connection's local socket address.
+	LocalAddr() (addr net.Addr)
+
+	// RemoteAddr is the connection's remote peer address.
+	RemoteAddr() (addr net.Addr)
 }
 
 type conn struct {
@@ -19,18 +25,24 @@ type conn struct {
 	remoteAddr net.Addr
 }
 
-func (conn *conn) Read(p []byte) (n int, err error) {
+func (c conn) Read(p []byte) (n int, err error) {
 	//working
 	return -1, err
 }
 
-func (conn *conn) Write(p []byte) (n int, err error) {
+func (c *conn) Write(p []byte) (n int, err error) {
 	//working
 	return -1, err
 }
 
-func (conn *conn) Fd() int {
-	return conn.fd
+func (c conn) Fd() int {
+	return c.fd
+}
+func (c conn) LocalAddr() net.Addr {
+	return c.localAddr
+}
+func (c conn) RemoteAddr() net.Addr {
+	return c.remoteAddr
 }
 
 func NewConn(fd int, la net.Addr, ra net.Addr) (Conn, error) {
