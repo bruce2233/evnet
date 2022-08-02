@@ -4,6 +4,8 @@ import (
 	. "evnet/socket"
 	"io"
 	"net"
+
+	"golang.org/x/sys/unix"
 )
 
 type Conn interface {
@@ -27,7 +29,11 @@ type conn struct {
 
 func (c conn) Read(p []byte) (n int, err error) {
 	//working
-	return -1, err
+	n, err = unix.Read(c.Fd(), p)
+	if err != nil {
+		panic("unhandled func conn Read error")
+	}
+	return
 }
 
 func (c *conn) Write(p []byte) (n int, err error) {

@@ -1,25 +1,16 @@
-// MIT License
-
-// Copyright (c) [2022] [Bruce Zhang]
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
+// Copyright (c) 2022 Bruce Zhang
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package reactor
 
 import (
@@ -33,17 +24,21 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type MainReactor struct {
-	subReactors  []*SubReactor
-	poller       *Poller
+type eventLoop struct {
 	eventHandler EventHandler
-	listener     Listener
+}
+
+type MainReactor struct {
+	subReactors    []*SubReactor
+	poller         *Poller
+	eventHandlerPP **EventHandler
+	listener       Listener
 }
 
 type SubReactor struct {
-	poller       *Poller
-	eventHandler EventHandler
-	connections  map[int]Conn
+	poller         *Poller
+	eventHandlerPP **EventHandler
+	connections    map[int]Conn
 }
 
 type Poller struct {
@@ -59,6 +54,11 @@ const (
 	readEvents      = unix.EPOLLPRI | unix.EPOLLIN
 	writeEvents     = unix.EPOLLOUT
 	readWriteEvents = readEvents | writeEvents
+	ErrEvents       = unix.EPOLLERR | unix.EPOLLHUP | unix.EPOLLRDHUP
+	// OutEvents combines EPOLLOUT event and some exceptional events.
+	OutEvents = ErrEvents | unix.EPOLLOUT
+	// InEvents combines EPOLLIN/EPOLLPRI events and some exceptional events.
+	InEvents = ErrEvents | unix.EPOLLIN | unix.EPOLLPRI
 )
 
 var SubReactorsNum = 2
@@ -110,6 +110,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 		newSubReactor := &SubReactor{}
 		newSubReactor.poller, err = OpenPoller()
 		newSubReactor.connections = make(map[int]Conn)
+		newSubReactor.eventHandlerPP = mr.eventHandlerPP
 		mr.subReactors = append(mr.subReactors, newSubReactor)
 	}
 	if err != nil {
@@ -133,9 +134,9 @@ func (mr *MainReactor) Init(proto, addr string) error {
 
 	//setEventHandler
 	beh := new(BuiltinEventHandler)
-	mr.eventHandler = beh
+	setEventHandler(mr, beh)
 	for i := range mr.subReactors {
-		mr.subReactors[i].eventHandler = beh
+		mr.subReactors[i].eventHandlerPP = mr.eventHandlerPP
 	}
 	return nil
 }
@@ -146,7 +147,8 @@ func startSubReactor(sr *SubReactor) {
 	for _, event := range eventList {
 		println(event.Fd, " event")
 		conn := sr.connections[int(event.Fd)]
-		sr.eventHandler.HandleConn(conn)
+		
+		(*(*sr.eventHandlerPP)).HandleConn(conn)
 	}
 }
 
@@ -155,7 +157,13 @@ func (mr *MainReactor) SetEventHandler(eh EventHandler) {
 }
 
 func setEventHandler(mr *MainReactor, eh EventHandler) {
-	mr.eventHandler = eh
+	// mr.eventHandler.HandleConn = eh.GetHandleConn()
+	if mr.eventHandlerPP == nil {
+		mr.eventHandlerPP = new(*EventHandler)
+		*mr.eventHandlerPP = &eh
+	} else {
+		*mr.eventHandlerPP = &eh
+	}
 }
 
 func (mainReactor *MainReactor) Loop() {
@@ -219,23 +227,27 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 
 //block
 func (poller *Poller) Polling() []unix.EpollEvent {
+	println("poller start waiting", poller.Fd)
+	eventList := polling(poller.Fd)
+	return eventList
+}
+
+func polling(epfd int) []unix.EpollEvent {
 	eventsList := make([]unix.EpollEvent, 128)
 
-	println("poller start waiting", poller.Fd)
 	var n int
 	var err error
 	for {
-		n, err = unix.EpollWait(poller.Fd, eventsList, -1)
+		n, err = unix.EpollWait(epfd, eventsList, -1)
 		println("epoll trigger")
 		// if return EINTR, EpollWait again
 		// debugging will trigger unix.EINTR error
 		if n < 0 && err == unix.EINTR {
 			runtime.Gosched()
 			continue
-		}
-		println("epoll events num: ", n, err)
-		if err != nil {
-			println(err)
+		} else if err != nil {
+			// logging.Errorf("error occurs in polling: %v", os.NewSyscallError("epoll_wait", err))
+			panic("EpollWait Error")
 		}
 		break
 	}

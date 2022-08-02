@@ -1,6 +1,7 @@
 package reactor
 
 import (
+	. "evnet/connection"
 	. "evnet/socket"
 	"net"
 	"testing"
@@ -8,9 +9,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type MyHandler struct {
+	BuiltinEventHandler
+}
+
+func (mh MyHandler) HandleConn(c Conn) {
+	p := make([]byte, 128)
+	n, err := unix.Read(c.Fd(), p)
+	println("unix.Read bytes n: ", n)
+	if err != nil {
+		panic("unix.Read")
+	}
+	println(string(p[:n]))
+}
 func TestMainRec(t *testing.T) {
+	readHandler := MyHandler{BuiltinEventHandler{}}
+
 	m := new(MainReactor)
 	m.Init("tcp", "127.0.0.1:9000")
+	m.SetEventHandler(readHandler)
 	m.Loop()
 }
 
@@ -57,3 +74,4 @@ func TestEpollWait(t *testing.T) {
 	unix.Read(listenerFd, p)
 	t.Log(string(p))
 }
+
