@@ -25,6 +25,7 @@ type conn struct {
 	fd         int
 	localAddr  net.Addr
 	remoteAddr net.Addr
+	buffer     []byte
 }
 
 func (c conn) Read(p []byte) (n int, err error) {

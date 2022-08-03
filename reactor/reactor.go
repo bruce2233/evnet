@@ -39,6 +39,7 @@ type SubReactor struct {
 	poller         *Poller
 	eventHandlerPP **EventHandler
 	connections    map[int]Conn
+	buffer         [64 * 1024]byte
 }
 
 type Poller struct {
@@ -182,18 +183,23 @@ func (mainReactor *MainReactor) Loop() {
 		}
 	}
 }
+
 func (sr *SubReactor) Loop() {
 	println("SubReactor start polling", sr.poller.Fd)
 	eventList := sr.poller.Polling()
 	for _, event := range eventList {
 		if event.Events&InEvents != 0 {
-			closeConn(sr, sr.connections[(int)(event.Fd)])
+			// closeConn(sr,
+			sr.read(sr.connections[(int)(event.Fd)])
 		}
 		println(event.Fd, " event")
 		conn := sr.connections[int(event.Fd)]
-
 		(*(*sr.eventHandlerPP)).HandleConn(conn)
 	}
+}
+func (sr *SubReactor) read(c Conn) {
+
+	n, err := unix.Read(c.Fd(),n)
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
