@@ -142,14 +142,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 }
 
 func startSubReactor(sr *SubReactor) {
-	println("SubReactor start polling", sr.poller.Fd)
-	eventList := sr.poller.Polling()
-	for _, event := range eventList {
-		println(event.Fd, " event")
-		conn := sr.connections[int(event.Fd)]
-		
-		(*(*sr.eventHandlerPP)).HandleConn(conn)
-	}
+
 }
 
 func (mr *MainReactor) SetEventHandler(eh EventHandler) {
@@ -189,6 +182,19 @@ func (mainReactor *MainReactor) Loop() {
 		}
 	}
 }
+func (sr *SubReactor) Loop() {
+	println("SubReactor start polling", sr.poller.Fd)
+	eventList := sr.poller.Polling()
+	for _, event := range eventList {
+		if event.Events&InEvents != 0 {
+			closeConn(sr, sr.connections[(int)(event.Fd)])
+		}
+		println(event.Fd, " event")
+		conn := sr.connections[int(event.Fd)]
+
+		(*(*sr.eventHandlerPP)).HandleConn(conn)
+	}
+}
 
 func (poller *Poller) AddPollRead(pafd int) error {
 	println("add poll read", "pollerFd: ", poller.Fd, "epolledFd: ", pafd)
@@ -207,6 +213,10 @@ func registerConn(sr *SubReactor, conn Conn) error {
 	sr.connections[conn.Fd()] = conn
 	sr.poller.AddPollRead(conn.Fd())
 	return nil
+}
+
+func closeConn(sr *SubReactor, conn Conn) {
+	//working
 }
 
 func AcceptSocket(fd int) (int, net.Addr, error) {
