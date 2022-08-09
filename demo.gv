@@ -1,0 +1,9 @@
+digraph {
+"connection.conn" -> { "connection.byte" "net.Addr" };
+"reactor.Listener" -> { "net.Addr" };
+"reactor.eventLoop" -> { "reactor.EventHandler" };
+"reactor.MainReactor" -> { "reactor.Poller" "reactor.EventHandler" "reactor.Listener" "reactor.SubReactor" };
+"reactor.SubReactor" -> { "reactor.Poller" "reactor.EventHandler" "reactor.Conn" "reactor.byte" };
+"reactor.PollAttachment" -> { "unix.EpollEvent" };
+"reactor.MyHandler" -> { "reactor.BuiltinEventHandler" };
+}

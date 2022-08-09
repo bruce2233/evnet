@@ -14,7 +14,6 @@
 package reactor
 
 import (
-	. "evnet/connection"
 	. "evnet/socket"
 	"math/rand"
 	"net"
@@ -38,8 +37,8 @@ type MainReactor struct {
 type SubReactor struct {
 	poller         *Poller
 	eventHandlerPP **EventHandler
-	connections    map[int]Conn
-	buffer         [64 * 1024]byte
+	connections    map[int]*conn
+	buffer         []byte
 }
 
 type Poller struct {
@@ -62,6 +61,7 @@ const (
 	InEvents = ErrEvents | unix.EPOLLIN | unix.EPOLLPRI
 )
 
+var subReactorBufferCap = 64 * 1024
 var SubReactorsNum = 2
 
 //create a new poller
@@ -110,7 +110,8 @@ func (mr *MainReactor) Init(proto, addr string) error {
 	for i := 0; i < SubReactorsNum; i++ {
 		newSubReactor := &SubReactor{}
 		newSubReactor.poller, err = OpenPoller()
-		newSubReactor.connections = make(map[int]Conn)
+		newSubReactor.connections = make(map[int]*conn)
+		newSubReactor.buffer = make([]byte, subReactorBufferCap)
 		newSubReactor.eventHandlerPP = mr.eventHandlerPP
 		mr.subReactors = append(mr.subReactors, newSubReactor)
 	}
@@ -197,9 +198,21 @@ func (sr *SubReactor) Loop() {
 		(*(*sr.eventHandlerPP)).HandleConn(conn)
 	}
 }
-func (sr *SubReactor) read(c Conn) {
 
-	n, err := unix.Read(c.Fd(),n)
+func (sr *SubReactor) read(c *conn) error {
+	n, err := unix.Read(c.Fd(), sr.buffer)
+	println("sr read n:", n)
+	println("sr.buffer len():", len(sr.buffer))
+	if err != nil {
+		if err == unix.EAGAIN {
+			return unix.EAGAIN
+		}
+		if n == 0 {
+			closeConn(c)
+		}
+		return unix.ECONNRESET
+	}
+	return nil
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
@@ -213,15 +226,15 @@ func addPollRead(epfd int, fd int) error {
 	return os.NewSyscallError("AddPollRead Error", err)
 }
 
-func registerConn(sr *SubReactor, conn Conn) error {
+func registerConn(sr *SubReactor, connItf Conn) error {
 	// conn, err := NewConn(socket.Fd(),socket.)
 	// subReactor[]
-	sr.connections[conn.Fd()] = conn
-	sr.poller.AddPollRead(conn.Fd())
+	sr.connections[connItf.Fd()] = connItf.(*conn)
+	sr.poller.AddPollRead(connItf.Fd())
 	return nil
 }
 
-func closeConn(sr *SubReactor, conn Conn) {
+func closeConn(conn Conn) {
 	//working
 }
 

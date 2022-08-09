@@ -1,4 +1,4 @@
-package connection
+package reactor
 
 import (
 	. "evnet/socket"
@@ -22,17 +22,18 @@ type Conn interface {
 }
 
 type conn struct {
-	fd         int
-	localAddr  net.Addr
-	remoteAddr net.Addr
-	buffer     []byte
+	fd             int
+	localAddr      net.Addr
+	remoteAddr     net.Addr
+	inboundBuffer  []byte
+	outboundBuffer []byte
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
 	//working
 	n, err = unix.Read(c.Fd(), p)
 	if err != nil {
-		panic("unhandled func conn Read error")
+		return -1, err
 	}
 	return
 }

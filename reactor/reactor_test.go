@@ -1,7 +1,6 @@
 package reactor
 
 import (
-	. "evnet/connection"
 	. "evnet/socket"
 	"net"
 	"testing"
@@ -74,4 +73,3 @@ func TestEpollWait(t *testing.T) {
 	unix.Read(listenerFd, p)
 	t.Log(string(p))
 }
-
