@@ -1,12 +1,22 @@
-package reactor
+package evnet
 
 import (
 	. "evnet/socket"
+	"log"
+	"math/rand"
 	"net"
 	"testing"
 
 	"golang.org/x/sys/unix"
 )
+
+const streamLen = 1024 * 1024
+
+type testServer struct {
+	tester  *testing.T
+	network string
+	address string
+}
 
 type MyHandler struct {
 	BuiltinEventHandler
@@ -14,17 +24,24 @@ type MyHandler struct {
 
 func (mh MyHandler) OnConn(c Conn) {
 	p, _ := c.Next(-1)
-	println(string(p))
+	log.Println("receive", len(p))
 }
 
 func (mh MyHandler) OnClose(c Conn) {
-	println("On Close Trigger")
+	log.Println("On Close Trigger")
 }
 func TestMainRec(t *testing.T) {
+	ts := testServer{
+		network: "tcp",
+		address: "127.0.0.1:9000",
+	}
 	readHandler := MyHandler{BuiltinEventHandler{}}
-	Run(readHandler, "tcp://127.0.0.1:9000")
+	Run(readHandler, ts.network+"://"+ts.address, WithLogPath("tmp.log"))
 }
 
+func TestClientWrite(t *testing.T) {
+	startClient(t, "tcp", "127.0.0.1:9000")
+}
 func TestNet(t *testing.T) {
 	conn, err := net.Dial("tcp", "127.0.0.1:9000")
 	if err != nil {
@@ -40,16 +57,13 @@ func TestNet(t *testing.T) {
 	conn.Close()
 }
 
-func testServe(t *testing.T, network, addr string) {
-
-}
-
-func TestLn(t *testing.T) {
-	ln, _ := net.Listen("tcp", "127.0.0.1:9000")
-	conn, _ := ln.Accept()
-	p := make([]byte, 128)
-	conn.Read(p)
-	t.Log(string(p))
+func startClient(t *testing.T, network, address string) {
+	reqData := make([]byte, streamLen)
+	rand.Read(reqData)
+	c, _ := net.Dial(network, address)
+	defer c.Close()
+	n, _ := c.Write(reqData)
+	t.Log(n)
 }
 
 func TestEpollWait(t *testing.T) {

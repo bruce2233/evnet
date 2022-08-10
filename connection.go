@@ -1,4 +1,4 @@
-package reactor
+package evnet
 
 import (
 	. "evnet/socket"

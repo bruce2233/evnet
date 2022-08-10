@@ -1,4 +1,6 @@
-package reactor
+package evnet
+
+import "log"
 
 type EventHandler interface {
 	//working
@@ -10,9 +12,9 @@ type BuiltinEventHandler struct {
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnConn(c Conn) {
-	println("OnConn triggered ", c.Fd())
+	log.Println("OnConn triggered ", c.Fd())
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnClose(c Conn) {
-	println("OnClose triggered ", c.Fd())
+	log.Println("OnClose triggered ", c.Fd())
 }

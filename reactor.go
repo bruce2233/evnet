@@ -11,10 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package reactor
+package evnet
 
 import (
 	. "evnet/socket"
+	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -104,7 +105,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 		return err
 	}
 	mr.poller = p
-	println("init main poller: ", p)
+	log.Println("init main poller: ", p)
 
 	//init subReactor
 	for i := 0; i < SubReactorsNum; i++ {
@@ -123,7 +124,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 	listenerFd, _, err := TcpSocket(proto, addr, true)
 	mr.listener.Fd = listenerFd
 	if err != nil {
-		println(err)
+		log.Println(err)
 	}
 
 	//add listenerFd epoll
@@ -164,17 +165,17 @@ func setEventHandler(mr *MainReactor, eh EventHandler) {
 
 func (mainReactor *MainReactor) Loop() {
 
-	println("poller: ", mainReactor.poller, "add poll linstenerFd", mainReactor.listener.Fd)
+	log.Println("poller: ", mainReactor.poller, "add poll linstenerFd", mainReactor.listener.Fd)
 
 	for {
-		println("main reactor start loop")
+		log.Println("main reactor start loop")
 		eventsList := mainReactor.poller.Polling()
 		//working
 		for _, v := range eventsList {
 			nfd, raddr, err := AcceptSocket(int(v.Fd))
-			println(nfd)
-			println(raddr.Network())
-			println(raddr.String())
+			log.Println(nfd)
+			log.Println(raddr.Network())
+			log.Println(raddr.String())
 			os.NewSyscallError("AcceptSocket Err", err)
 			//convert from nfd, tcpAddr to a socket
 			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
@@ -187,14 +188,14 @@ func (mainReactor *MainReactor) Loop() {
 }
 
 func (sr *SubReactor) Loop() {
-	println("SubReactor start polling", sr.poller.Fd)
+	log.Println("SubReactor start polling", sr.poller.Fd)
 	eventList := sr.poller.Polling()
 	for _, event := range eventList {
 		if event.Events&InEvents != 0 {
 			// closeConn(sr,
 			sr.read(sr.connections[(int)(event.Fd)])
 		}
-		println(event.Fd, " event")
+		log.Println(event.Fd, " event")
 		conn := sr.connections[int(event.Fd)]
 		sr.read(conn)
 	}
@@ -202,14 +203,14 @@ func (sr *SubReactor) Loop() {
 
 func (sr *SubReactor) read(c *conn) error {
 	n, err := unix.Read(c.Fd(), sr.buffer)
-	println("sr read n:", n)
-	println("sr.buffer len():", len(sr.buffer))
+	log.Println("sr read n:", n)
+	log.Println("sr.buffer len():", len(sr.buffer))
 	if n == 0 {
 		sr.closeConn(c)
 	}
 	if err != nil {
 		if err == unix.EAGAIN {
-			// println(unix.EAGAIN)
+			// log.Println(unix.EAGAIN)
 			return unix.EAGAIN
 		}
 		return unix.ECONNRESET
@@ -220,7 +221,7 @@ func (sr *SubReactor) read(c *conn) error {
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
-	println("add poll read", "pollerFd: ", poller.Fd, "epolledFd: ", pafd)
+	log.Println("add poll read", "pollerFd: ", poller.Fd, "epolledFd: ", pafd)
 	err := addPollRead(poller.Fd, pafd)
 	return err
 }
@@ -253,7 +254,7 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 	case *unix.SockaddrInet4:
 		sa4, ok := sa.(*unix.SockaddrInet4)
 		if !ok {
-			println("sa4 asset error")
+			log.Println("sa4 asset error")
 		}
 		return nfd, &net.TCPAddr{IP: sa4.Addr[:], Port: sa4.Port}, err
 	}
@@ -262,7 +263,7 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 
 //block
 func (poller *Poller) Polling() []unix.EpollEvent {
-	println("poller start waiting", poller.Fd)
+	log.Println("poller start waiting", poller.Fd)
 	eventList := polling(poller.Fd)
 	return eventList
 }
@@ -274,7 +275,7 @@ func polling(epfd int) []unix.EpollEvent {
 	var err error
 	for {
 		n, err = unix.EpollWait(epfd, eventsList, -1)
-		println("epoll trigger")
+		log.Println("epoll trigger")
 		// if return EINTR, EpollWait again
 		// debugging will trigger unix.EINTR error
 		if n < 0 && err == unix.EINTR {

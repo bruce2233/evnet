@@ -1,0 +1,21 @@
+2022/08/10 19:37:57.250682 /home/bruce/github/evnet/evnet.go:19: log test
+2022/08/10 19:39:36.029433 /home/bruce/github/evnet/evnet.go:19: log test
+2022/08/10 19:39:36.029708 /home/bruce/github/evnet/reactor.go:108: init main poller:  &{7 0}
+2022/08/10 19:39:36.030151 /home/bruce/github/evnet/reactor.go:224: add poll read pollerFd:  7 epolledFd:  10
+2022/08/10 19:39:36.030344 /home/bruce/github/evnet/reactor.go:168: poller:  &{7 0} add poll linstenerFd 10
+2022/08/10 19:39:36.030371 /home/bruce/github/evnet/reactor.go:171: main reactor start loop
+2022/08/10 19:39:36.030380 /home/bruce/github/evnet/reactor.go:266: poller start waiting 7
+2022/08/10 19:39:36.031430 /home/bruce/github/evnet/reactor.go:191: SubReactor start polling 9
+2022/08/10 19:39:36.031545 /home/bruce/github/evnet/reactor.go:266: poller start waiting 9
+2022/08/10 19:39:36.031499 /home/bruce/github/evnet/reactor.go:191: SubReactor start polling 8
+2022/08/10 19:39:36.032179 /home/bruce/github/evnet/reactor.go:266: poller start waiting 8
+2022/08/10 19:42:08.239740 /home/bruce/github/evnet/evnet.go:19: log test
+2022/08/10 19:42:08.239929 /home/bruce/github/evnet/reactor.go:108: init main poller:  &{7 0}
+2022/08/10 19:42:08.240093 /home/bruce/github/evnet/reactor.go:224: add poll read pollerFd:  7 epolledFd:  10
+2022/08/10 19:42:08.240211 /home/bruce/github/evnet/reactor.go:168: poller:  &{7 0} add poll linstenerFd 10
+2022/08/10 19:42:08.240836 /home/bruce/github/evnet/reactor.go:171: main reactor start loop
+2022/08/10 19:42:08.240913 /home/bruce/github/evnet/reactor.go:266: poller start waiting 7
+2022/08/10 19:42:08.241001 /home/bruce/github/evnet/reactor.go:191: SubReactor start polling 9
+2022/08/10 19:42:08.241072 /home/bruce/github/evnet/reactor.go:266: poller start waiting 9
+2022/08/10 19:42:08.240340 /home/bruce/github/evnet/reactor.go:191: SubReactor start polling 8
+2022/08/10 19:42:08.241304 /home/bruce/github/evnet/reactor.go:266: poller start waiting 8

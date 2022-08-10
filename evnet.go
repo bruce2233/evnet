@@ -1,11 +1,24 @@
-package reactor
+package evnet
 
-import "strings"
+import (
+	"log"
+	"os"
+	"strings"
+)
 
-func Run(eventHandler EventHandler, protoAddr string) {
+func Run(eventHandler EventHandler, protoAddr string, optList ...Option) {
+	opts := loadOptions(optList)
+	if opts.LogPath != "" {
+		outputFile, err := os.OpenFile(opts.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 777)
+		if err != nil {
+			log.Println("log file open error")
+		}
+		log.SetOutput(outputFile)
+	}
+	log.SetFlags(log.Llongfile | log.Lmicroseconds | log.Ldate)
+	log.Println("log test")
 	//options working
 	network, address := parseProtoAddr(protoAddr)
-
 	mr := new(MainReactor)
 	mr.Init(network, address)
 	mr.SetEventHandler(eventHandler)
