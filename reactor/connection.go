@@ -4,8 +4,6 @@ import (
 	. "evnet/socket"
 	"io"
 	"net"
-
-	"golang.org/x/sys/unix"
 )
 
 type Conn interface {
@@ -13,6 +11,8 @@ type Conn interface {
 	io.Reader
 	io.Writer
 	Socket
+
+	Next(n int) ([]byte, error)
 
 	// LocalAddr is the connection's local socket address.
 	LocalAddr() (addr net.Addr)
@@ -31,7 +31,6 @@ type conn struct {
 
 func (c conn) Read(p []byte) (n int, err error) {
 	//working
-	n, err = unix.Read(c.Fd(), p)
 	if err != nil {
 		return -1, err
 	}
@@ -43,12 +42,22 @@ func (c *conn) Write(p []byte) (n int, err error) {
 	return -1, err
 }
 
+func (c *conn) Next(n int) (buf []byte, err error) {
+	//working
+	if n <= 0 {
+		return c.inboundBuffer, nil
+	}
+	return nil, nil
+}
+
 func (c conn) Fd() int {
 	return c.fd
 }
+
 func (c conn) LocalAddr() net.Addr {
 	return c.localAddr
 }
+
 func (c conn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }

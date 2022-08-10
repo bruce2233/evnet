@@ -12,22 +12,17 @@ type MyHandler struct {
 	BuiltinEventHandler
 }
 
-func (mh MyHandler) HandleConn(c Conn) {
-	p := make([]byte, 128)
-	n, err := unix.Read(c.Fd(), p)
-	println("unix.Read bytes n: ", n)
-	if err != nil {
-		panic("unix.Read")
-	}
-	println(string(p[:n]))
+func (mh MyHandler) OnConn(c Conn) {
+	p, _ := c.Next(-1)
+	println(string(p))
+}
+
+func (mh MyHandler) OnClose(c Conn) {
+	println("On Close Trigger")
 }
 func TestMainRec(t *testing.T) {
 	readHandler := MyHandler{BuiltinEventHandler{}}
-
-	m := new(MainReactor)
-	m.Init("tcp", "127.0.0.1:9000")
-	m.SetEventHandler(readHandler)
-	m.Loop()
+	Run(readHandler, "tcp://127.0.0.1:9000")
 }
 
 func TestNet(t *testing.T) {
@@ -43,6 +38,10 @@ func TestNet(t *testing.T) {
 	}
 	t.Log(n)
 	conn.Close()
+}
+
+func testServe(t *testing.T, network, addr string) {
+
 }
 
 func TestLn(t *testing.T) {

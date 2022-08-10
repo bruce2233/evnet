@@ -1,21 +1,18 @@
 package reactor
 
-import (
-)
-
 type EventHandler interface {
 	//working
-	HandleConn(c Conn)
-	GetHandleConn() func(Conn)
+	OnConn(c Conn)
+	OnClose(c Conn)
 }
 
 type BuiltinEventHandler struct {
 }
 
-func (beh BuiltinEventHandler) HandleConn(c Conn) {
-	println("Handle Conn triggered ", c.Fd())
+func (builtinEventHandler BuiltinEventHandler) OnConn(c Conn) {
+	println("OnConn triggered ", c.Fd())
 }
 
-func (beh BuiltinEventHandler) GetHandleConn() func(Conn) {
-	return beh.HandleConn
+func (builtinEventHandler BuiltinEventHandler) OnClose(c Conn) {
+	println("OnClose triggered ", c.Fd())
 }

@@ -144,7 +144,8 @@ func (mr *MainReactor) Init(proto, addr string) error {
 }
 
 func startSubReactor(sr *SubReactor) {
-
+	// sr.poller.Polling()
+	sr.Loop()
 }
 
 func (mr *MainReactor) SetEventHandler(eh EventHandler) {
@@ -195,7 +196,7 @@ func (sr *SubReactor) Loop() {
 		}
 		println(event.Fd, " event")
 		conn := sr.connections[int(event.Fd)]
-		(*(*sr.eventHandlerPP)).HandleConn(conn)
+		sr.read(conn)
 	}
 }
 
@@ -203,15 +204,18 @@ func (sr *SubReactor) read(c *conn) error {
 	n, err := unix.Read(c.Fd(), sr.buffer)
 	println("sr read n:", n)
 	println("sr.buffer len():", len(sr.buffer))
+	if n == 0 {
+		sr.closeConn(c)
+	}
 	if err != nil {
 		if err == unix.EAGAIN {
+			// println(unix.EAGAIN)
 			return unix.EAGAIN
-		}
-		if n == 0 {
-			closeConn(c)
 		}
 		return unix.ECONNRESET
 	}
+	c.inboundBuffer = sr.buffer[:n]
+	(**sr.eventHandlerPP).OnConn(c)
 	return nil
 }
 
@@ -234,8 +238,10 @@ func registerConn(sr *SubReactor, connItf Conn) error {
 	return nil
 }
 
-func closeConn(conn Conn) {
+func (sr *SubReactor) closeConn(c Conn) {
 	//working
+	(**sr.eventHandlerPP).OnClose(c)
+	delete(sr.connections, c.Fd())
 }
 
 func AcceptSocket(fd int) (int, net.Addr, error) {
