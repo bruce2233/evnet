@@ -42,25 +42,10 @@ type SubReactor struct {
 	buffer         []byte
 }
 
-type Poller struct {
-	Fd  int
-	efd int
-}
 type PollAttachment struct {
 	Fd    int
 	Event unix.EpollEvent
 }
-
-const (
-	readEvents      = unix.EPOLLPRI | unix.EPOLLIN
-	writeEvents     = unix.EPOLLOUT
-	readWriteEvents = readEvents | writeEvents
-	ErrEvents       = unix.EPOLLERR | unix.EPOLLHUP | unix.EPOLLRDHUP
-	// OutEvents combines EPOLLOUT event and some exceptional events.
-	OutEvents = ErrEvents | unix.EPOLLOUT
-	// InEvents combines EPOLLIN/EPOLLPRI events and some exceptional events.
-	InEvents = ErrEvents | unix.EPOLLIN | unix.EPOLLPRI
-)
 
 var subReactorBufferCap = 64 * 1024
 var SubReactorsNum = 2
@@ -165,63 +150,65 @@ func setEventHandler(mr *MainReactor, eh EventHandler) {
 
 func (mainReactor *MainReactor) Loop() {
 
-	log.Println("poller: ", mainReactor.poller, "add poll linstenerFd", mainReactor.listener.Fd)
+	log.Println("debug: ", "mainReactor create", "poller: ", mainReactor.poller, "linstenerFd is ", mainReactor.listener.Fd)
 
 	for {
-		log.Println("main reactor start loop")
+		log.Println("debug: ", "main reactor start polling")
 		eventsList := mainReactor.poller.Polling()
 		//working
 		for _, v := range eventsList {
 			nfd, raddr, err := AcceptSocket(int(v.Fd))
-			log.Println(nfd)
-			log.Println(raddr.Network())
-			log.Println(raddr.String())
+			log.Println("debug: ", nfd, raddr.Network(), raddr.String())
 			os.NewSyscallError("AcceptSocket Err", err)
 			//convert from nfd, tcpAddr to a socket
 			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
 			idx := rand.Intn(2)
 			laddr := mainReactor.listener.addr
 			conn, _ := NewConn(nfd, laddr, raddr)
+			log.Println("debug: ", "mainReactor accept connection ", raddr, "to subReactor ", idx)
 			registerConn(mainReactor.subReactors[idx], conn)
 		}
 	}
 }
 
 func (sr *SubReactor) Loop() {
-	log.Println("SubReactor start polling", sr.poller.Fd)
-	eventList := sr.poller.Polling()
-	for _, event := range eventList {
-		if event.Events&InEvents != 0 {
-			// closeConn(sr,
-			sr.read(sr.connections[(int)(event.Fd)])
+	for {
+		log.Println("debug: ", "SubReactor start polling", sr.poller.Fd)
+		eventList := sr.poller.Polling()
+		for _, event := range eventList {
+			log.Println("debug: ", "events: ", event.Events)
+			if event.Events&InEvents != 0 {
+				// closeConn(sr,
+				// sr.read(sr.connections[(int)(event.Fd)])
+				conn := sr.connections[int(event.Fd)]
+				log.Println("debug: ", "subReactor event from: ", conn.RemoteAddr())
+				sr.read(conn)
+			}
 		}
-		log.Println(event.Fd, " event")
-		conn := sr.connections[int(event.Fd)]
-		sr.read(conn)
 	}
 }
 
 func (sr *SubReactor) read(c *conn) error {
 	n, err := unix.Read(c.Fd(), sr.buffer)
-	log.Println("sr read n:", n)
-	log.Println("sr.buffer len():", len(sr.buffer))
+	log.Println("debug: ", "sr read n:", n)
+	// log.Println("sr.buffer len():", len(sr.buffer))
 	if n == 0 {
 		sr.closeConn(c)
 	}
 	if err != nil {
 		if err == unix.EAGAIN {
-			// log.Println(unix.EAGAIN)
+			log.Println("err: ", unix.EAGAIN)
 			return unix.EAGAIN
 		}
 		return unix.ECONNRESET
 	}
 	c.inboundBuffer = sr.buffer[:n]
-	(**sr.eventHandlerPP).OnConn(c)
+	(**sr.eventHandlerPP).OnTraffic(c)
 	return nil
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
-	log.Println("add poll read", "pollerFd: ", poller.Fd, "epolledFd: ", pafd)
+	// log.Println("add poll read", "pollerFd: ", poller.Fd, "epolledFd: ", pafd)
 	err := addPollRead(poller.Fd, pafd)
 	return err
 }
@@ -242,6 +229,8 @@ func registerConn(sr *SubReactor, connItf Conn) error {
 func (sr *SubReactor) closeConn(c Conn) {
 	//working
 	(**sr.eventHandlerPP).OnClose(c)
+	unix.Close(c.Fd())
+	sr.poller.Delete(c.Fd())
 	delete(sr.connections, c.Fd())
 }
 
@@ -263,7 +252,7 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 
 //block
 func (poller *Poller) Polling() []unix.EpollEvent {
-	log.Println("poller start waiting", poller.Fd)
+	// log.Println("poller start waiting", poller.Fd)
 	eventList := polling(poller.Fd)
 	return eventList
 }
