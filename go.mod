@@ -1,4 +1,4 @@
-module evnet
+module github.com/bruce2233/evnet
 
 go 1.18
 
