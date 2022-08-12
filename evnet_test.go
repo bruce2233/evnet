@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"net"
 	"testing"
-	"time"
 
 	. "github.com/bruce2233/evnet/socket"
 
@@ -42,8 +41,24 @@ func TestMainRec(t *testing.T) {
 	Run(readHandler, ts.network+"://"+ts.address)
 }
 
+const (
+	CLIENTNUM = 100
+)
+
 func TestClientWrite(t *testing.T) {
-	startClient(t, "tcp", "127.0.0.1:9000")
+	done := make(chan bool)
+
+	for i := 0; i < CLIENTNUM; i++ {
+		go startClient(t, "tcp", "127.0.0.1:9000", done)
+	}
+	// time.Sleep(10 * time.Second)
+	ack := CLIENTNUM
+	for ack > 0 {
+		if <-done {
+			ack--
+			t.Log(ack, " client remains...")
+		}
+	}
 }
 func TestNet(t *testing.T) {
 	conn, err := net.Dial("tcp", "127.0.0.1:9000")
@@ -60,14 +75,15 @@ func TestNet(t *testing.T) {
 	conn.Close()
 }
 
-func startClient(t *testing.T, network, address string) {
+func startClient(t *testing.T, network, address string, done chan bool) {
 	reqData := make([]byte, streamLen)
 	rand.Read(reqData)
 	c, _ := net.Dial(network, address)
 	defer c.Close()
 	n, err := c.Write(reqData)
 	t.Log(n, err)
-	time.Sleep(1000)
+	// time.Sleep(1000)
+	done <- true
 }
 
 func TestEpollWait(t *testing.T) {
