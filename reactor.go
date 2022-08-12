@@ -14,12 +14,13 @@
 package evnet
 
 import (
-	. "evnet/socket"
 	"log"
 	"math/rand"
 	"net"
 	"os"
 	"runtime"
+
+	. "github.com/bruce2233/evnet/socket"
 
 	"golang.org/x/sys/unix"
 )
@@ -48,7 +49,7 @@ type PollAttachment struct {
 }
 
 var subReactorBufferCap = 64 * 1024
-var SubReactorsNum = 2
+var SubReactorsNum = 5
 
 //create a new poller
 func OpenPoller() (poller *Poller, err error) {

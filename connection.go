@@ -1,7 +1,7 @@
 package evnet
 
 import (
-	. "evnet/socket"
+	. "github.com/bruce2233/evnet/socket"
 	"io"
 	"net"
 )
