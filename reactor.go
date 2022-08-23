@@ -178,12 +178,18 @@ func (sr *SubReactor) Loop() {
 		eventList := sr.poller.Polling()
 		for _, event := range eventList {
 			log.Println("debug: ", "events: ", event.Events)
+			if event.Events&OutEvents != 0 {
+				c := sr.connections[int(event.Fd)]
+				log.Println("debug: ", "subReactor OutEvents from: ", c.RemoteAddr())
+				sr.write(c)
+			}
+
 			if event.Events&InEvents != 0 {
 				// closeConn(sr,
 				// sr.read(sr.connections[(int)(event.Fd)])
-				conn := sr.connections[int(event.Fd)]
-				log.Println("debug: ", "subReactor event from: ", conn.RemoteAddr())
-				sr.read(conn)
+				c := sr.connections[int(event.Fd)]
+				log.Println("debug: ", "subReactor InEvents from: ", c.RemoteAddr())
+				sr.read(c)
 			}
 		}
 	}
@@ -206,6 +212,20 @@ func (sr *SubReactor) read(c *conn) error {
 	c.inboundBuffer = sr.buffer[:n]
 	(**sr.eventHandlerPP).OnTraffic(c)
 	return nil
+}
+
+func (sr *SubReactor) write(c *conn) error {
+	buffedLen := len(c.outboundBuffer)
+	n, err := unix.Write(c.Fd(), c.outboundBuffer)
+	if err != nil {
+		log.Println("error: ", "subReactor Write error")
+	}
+	if n == buffedLen {
+		c.outboundBuffer = c.outboundBuffer[n:]
+		c.
+	}
+	c.outboundBuffer = c.outboundBuffer[n:]
+	return err
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
