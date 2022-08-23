@@ -1,15 +1,18 @@
 package evnet
 
 import (
-	. "github.com/bruce2233/evnet/socket"
+	"errors"
 	"io"
 	"net"
+
+	. "github.com/bruce2233/evnet/socket"
+	"golang.org/x/sys/unix"
 )
 
 type Conn interface {
 	//working
 	io.Reader
-	io.Writer
+	Writer
 	Socket
 
 	Next(n int) ([]byte, error)
@@ -21,6 +24,11 @@ type Conn interface {
 	RemoteAddr() (addr net.Addr)
 }
 
+type Writer interface {
+	io.Writer
+
+	AsyncWrite([]byte, func(Conn) error) error
+}
 type conn struct {
 	fd             int
 	localAddr      net.Addr
@@ -37,9 +45,40 @@ func (c conn) Read(p []byte) (n int, err error) {
 	return
 }
 
+//sync Write
 func (c *conn) Write(p []byte) (n int, err error) {
-	//working
+
+	if len(c.outboundBuffer) > 0 {
+		return -1, errors.New("Previous data waiting")
+	}
+
+	bufferedLen := len(c.outboundBuffer)
+
+	sent, err := unix.Write(c.Fd(), p)
+	for sent < len(c.outboundBuffer) {
+		if sent < bufferedLen {
+			c.outboundBuffer = c.outboundBuffer[sent:]
+		}
+	}
 	return -1, err
+}
+
+//Async Write
+func (c *conn) AsyncWrite(p []byte, AfterWritten func(c Conn) (err error)) error {
+
+	if len(c.outboundBuffer) > 0 {
+		return errors.New("Previous data waiting")
+	}
+
+	bufferedLen := len(c.outboundBuffer)
+
+	sent, err := unix.Write(c.Fd(), p)
+	for sent < len(c.outboundBuffer) {
+		if sent < bufferedLen {
+			c.outboundBuffer = c.outboundBuffer[sent:]
+		}
+	}
+	return err
 }
 
 func (c *conn) Next(n int) (buf []byte, err error) {
