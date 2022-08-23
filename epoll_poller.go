@@ -25,3 +25,8 @@ const (
 func (p *Poller) Delete(fd int) error {
 	return os.NewSyscallError("epoll_ctl del", unix.EpollCtl(p.Fd, unix.EPOLL_CTL_DEL, fd, nil))
 }
+
+func (p *Poller) ModReadWrite(fd int) error {
+	return os.NewSyscallError("EPOLL_MOD", unix.EpollCtl(p.Fd, unix.EPOLL_CTL_MOD, fd, &unix.EpollEvent{Fd: int32(fd), Events: readWriteEvents}))
+}
+
