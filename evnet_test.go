@@ -72,7 +72,15 @@ func TestNet(t *testing.T) {
 		t.Log(err)
 	}
 	t.Log(n)
-	conn.Close()
+	total := 0
+	for {
+		inData := make([]byte, 1024*1024)
+		conn.Read(inData)
+		t.Log("new: ", len(inData), "total: ", total)
+		total += len(inData)
+	}
+
+	// conn.Close()
 }
 
 func startClient(t *testing.T, network, address string, done chan bool) {
