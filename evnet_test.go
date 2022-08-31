@@ -45,11 +45,23 @@ const (
 	CLIENTNUM = 100
 )
 
+func TestServer(t *testing.T) {
+	tsNetWord := "tcp"
+	tsAddress := "127.0.0.1:9000"
+	ts := MyHandler{
+		BuiltinEventHandler{},
+	}
+	Run(ts, tsNetWord+"://"+tsAddress)
+
+}
 func TestClientWrite(t *testing.T) {
 	done := make(chan bool)
 
 	for i := 0; i < CLIENTNUM; i++ {
-		go startClient(t, "tcp", "127.0.0.1:9000", done)
+		go writeData(t, "tcp", "127.0.0.1:9000", done, func(c net.Conn) {
+			respData := make([]byte, 1024)
+			c.Read(respData)
+		})
 	}
 	// time.Sleep(10 * time.Second)
 	ack := CLIENTNUM
@@ -60,6 +72,7 @@ func TestClientWrite(t *testing.T) {
 		}
 	}
 }
+
 func TestNet(t *testing.T) {
 	conn, err := net.Dial("tcp", "127.0.0.1:9000")
 	if err != nil {
@@ -79,11 +92,10 @@ func TestNet(t *testing.T) {
 		t.Log("new: ", len(inData), "total: ", total)
 		total += len(inData)
 	}
-
 	// conn.Close()
 }
 
-func startClient(t *testing.T, network, address string, done chan bool) {
+func writeData(t *testing.T, network, address string, done chan bool, callback func(c net.Conn)) {
 	reqData := make([]byte, streamLen)
 	rand.Read(reqData)
 	c, _ := net.Dial(network, address)
