@@ -9,6 +9,16 @@
 为什么读时不需要提供可读的必要信息呢? 因为调用读数据的条件是有空间可以读.
 
 ## 调用线程 -- go runtime/用户函数
+```mermaid
+%%{init: {'theme': 'base'} }%%
+flowchart LR
+    subgraph subReactor
+        Polling --> |fd, ev| callback
+        AsyncQueue --- callback 
+    end
+    callback --- |Conn| OnWriten
+    callback --- |Conn| OnTraffic
+```
 
 ### 调用起点 -- 事件
 go runtime是最普遍性的调用线程, 但事件只能是操作系统定义的几种.
