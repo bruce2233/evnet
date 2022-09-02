@@ -35,6 +35,7 @@ type conn struct {
 	remoteAddr     net.Addr
 	inboundBuffer  []byte
 	outboundBuffer []byte
+	reactor        *SubReactor
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
@@ -69,16 +70,9 @@ func (c *conn) AsyncWrite(p []byte, AfterWritten func(c Conn) (err error)) error
 	if len(c.outboundBuffer) > 0 {
 		return errors.New("Previous data waiting")
 	}
-
-	bufferedLen := len(c.outboundBuffer)
-
-	sent, err := unix.Write(c.Fd(), p)
-	for sent < len(c.outboundBuffer) {
-		if sent < bufferedLen {
-			c.outboundBuffer = c.outboundBuffer[sent:]
-		}
-	}
-	return err
+	c.outboundBuffer = p
+	c.reactor.poller.ModReadWrite(c.Fd())
+	return nil
 }
 
 func (c *conn) Next(n int) (buf []byte, err error) {
