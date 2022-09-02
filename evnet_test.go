@@ -1,9 +1,11 @@
 package evnet
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"net"
+	"reflect"
 	"testing"
 
 	. "github.com/bruce2233/evnet/socket"
@@ -54,13 +56,19 @@ func TestServer(t *testing.T) {
 	Run(ts, tsNetWord+"://"+tsAddress)
 
 }
-func TestClientWrite(t *testing.T) {
+func TestClientWrite(t *testing.T) error{
 	done := make(chan bool)
 
 	for i := 0; i < CLIENTNUM; i++ {
-		go writeData(t, "tcp", "127.0.0.1:9000", done, func(c net.Conn) {
-			respData := make([]byte, 1024)
+		go fetchData(t, "tcp", "127.0.0.1:9000", done, func(c net.Conn, reqData []byte) error{
+			reqLen := len(reqData)
+			respData := make([]byte, reqLen)
 			c.Read(respData)
+			fixedReqData := reqData[:reqLen]
+			if !reflect.DeepEqual(fixedReqData, respData){
+				return errors.New("write data and read data error") 
+			}
+			return nil
 		})
 	}
 	// time.Sleep(10 * time.Second)
@@ -95,7 +103,7 @@ func TestNet(t *testing.T) {
 	// conn.Close()
 }
 
-func writeData(t *testing.T, network, address string, done chan bool, callback func(c net.Conn)) {
+func fetchData(t *testing.T, network, address string, done chan bool, callback func(c net.Conn, reqData []byte) error) error{
 	reqData := make([]byte, streamLen)
 	rand.Read(reqData)
 	c, _ := net.Dial(network, address)
@@ -104,6 +112,8 @@ func writeData(t *testing.T, network, address string, done chan bool, callback f
 	t.Log(n, err)
 	// time.Sleep(1000)
 	done <- true
+	err = callback(c, reqData)
+	return err
 }
 
 func TestEpollWait(t *testing.T) {
