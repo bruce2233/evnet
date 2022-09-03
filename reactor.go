@@ -195,9 +195,36 @@ func (sr *SubReactor) Loop() {
 	}
 }
 
-func (sr *SubReactor) Polling(callback func(c Conn)error){
+func (sr *SubReactor) Polling(callback func(fd int, events uint32)error){
+	eventsList := polling(sr.poller.Fd)
+	for _,eventsItem :=range eventsList{
+		callback(int(eventsItem.Fd), eventsItem.Events)
+	}
+}
 
+const (
+	PollEventsCap = 128
+)
+func polling(epfd int) []unix.EpollEvent {
+	eventsList := make([]unix.EpollEvent, PollEventsCap)
 
+	var n int
+	var err error
+	for {
+		n, err = unix.EpollWait(epfd, eventsList, -1)
+		log.Println("epoll trigger")
+		// if return EINTR, EpollWait again
+		// debugging will trigger unix.EINTR error
+		if n < 0 && err == unix.EINTR {
+			runtime.Gosched()
+			continue
+		} else if err != nil {
+			// logging.Errorf("error occurs in polling: %v", os.NewSyscallError("epoll_wait", err))
+			panic("EpollWait Error")
+		}
+		break
+	}
+	return eventsList[:n]
 }
 
 func (sr *SubReactor) read(c *conn) error {
@@ -227,7 +254,6 @@ func (sr *SubReactor) write(c *conn) error {
 	}
 	if n == buffedLen {
 		c.outboundBuffer = c.outboundBuffer[n:]
-		c.
 	}
 	c.outboundBuffer = c.outboundBuffer[n:]
 	return err
@@ -283,24 +309,4 @@ func (poller *Poller) Polling() []unix.EpollEvent {
 	return eventList
 }
 
-func polling(epfd int) []unix.EpollEvent {
-	eventsList := make([]unix.EpollEvent, 128)
 
-	var n int
-	var err error
-	for {
-		n, err = unix.EpollWait(epfd, eventsList, -1)
-		log.Println("epoll trigger")
-		// if return EINTR, EpollWait again
-		// debugging will trigger unix.EINTR error
-		if n < 0 && err == unix.EINTR {
-			runtime.Gosched()
-			continue
-		} else if err != nil {
-			// logging.Errorf("error occurs in polling: %v", os.NewSyscallError("epoll_wait", err))
-			panic("EpollWait Error")
-		}
-		break
-	}
-	return eventsList[:n]
-}
