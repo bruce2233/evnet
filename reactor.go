@@ -52,7 +52,7 @@ type PollAttachment struct {
 var subReactorBufferCap = 64 * 1024
 var SubReactorsNum = 5
 
-//create a new poller
+// create a new poller
 func OpenPoller() (poller *Poller, err error) {
 	poller = new(Poller)
 	if poller.Fd, err = unix.EpollCreate1(unix.EPOLL_CLOEXEC); err != nil {
@@ -77,14 +77,14 @@ func OpenPoller() (poller *Poller, err error) {
 	return
 }
 
-//The proto paramater MUST be "tcp"
-//The addr parameter
+// The proto paramater MUST be "tcp"
+// The addr parameter
 func (mainReactor *MainReactor) Listen(proto, addr string) (fd int, netAddr net.Addr, err error) {
 	fd, netAddr, err = TcpSocket(proto, addr, true)
 	return
 }
 
-//Create poller and listener for mainReactor
+// Create poller and listener for mainReactor
 func (mr *MainReactor) Init(proto, addr string) error {
 	//init poller
 	p, err := OpenPoller()
@@ -135,7 +135,7 @@ func startSubReactor(sr *SubReactor) {
 	// sr.poller.Polling()
 	// sr.Loop()
 	sr.Polling(func(fd int, ev uint32) error {
-		if ev & OutEvents!=0{
+		if ev&OutEvents != 0 {
 			sr.asyncTaskQueue
 		}
 	})
@@ -201,10 +201,10 @@ func (sr *SubReactor) Loop() {
 	}
 }
 
-func (sr *SubReactor) Polling(callback func(fd int, ev uint32) error){
+func (sr *SubReactor) Polling(callback func(fd int, ev uint32) error) {
 	eventsList := polling(sr.poller.Fd)
-	for _, eventsItem := range eventsList{
-		callback(eventsItem.Fd,eventsItem.Events)
+	for _, eventsItem := range eventsList {
+		callback(eventsItem.Fd, eventsItem.Events)
 	}
 }
 
@@ -225,7 +225,6 @@ func (sr *SubReactor) read(c *conn) error {
 	c.inboundBuffer = sr.buffer[:n]
 	(**sr.eventHandlerPP).OnTraffic(c)
 
-
 	return nil
 }
 
@@ -237,7 +236,6 @@ func (sr *SubReactor) write(c *conn) error {
 	}
 	if n == buffedLen {
 		c.outboundBuffer = c.outboundBuffer[n:]
-		c.
 	}
 	c.outboundBuffer = c.outboundBuffer[n:]
 	return err
@@ -308,15 +306,15 @@ func polling(epfd int) []unix.EpollEvent {
 	return eventsList[:n]
 }
 
-type Task interface{
+type Task interface {
 	Run()
 }
 
-type WriteTask struct{
+type WriteTask struct {
 	writeData []byte
 }
 
-func (wt *WriteTask) Run(c Conn){
+func (wt *WriteTask) Run(c Conn) {
 	//working
 	n, err := unix.Write(wt.writeData)
 	c.writeData = wt.writeData[n:]
