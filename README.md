@@ -1,7 +1,7 @@
 # ⚡ Introduction
 ![](https://s3.bmp.ovh/imgs/2022/08/09/7704dbff7cbff64c.png)
 
-`Evnet` is event-driven net framework with high performance deriving from gnet and evio. It supports  [epoll](https://en.wikipedia.org/wiki/EpollNetty ) syscall in Linux only now. I'll complete docs consitently. If it's useful to you, Please STAR it!
+`Evnet` is event-driven net framework with high performance deriving from gnet and evio. It supports  [epoll](https://en.wikipedia.org/wiki/EpollNetty ) syscall in Linux only now. I'll complete docs continuously. If it's useful to you, Please STAR it!
 
 # ✨ Features
 
