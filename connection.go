@@ -49,19 +49,25 @@ func (c conn) Read(p []byte) (n int, err error) {
 //sync Write
 func (c *conn) Write(p []byte) (n int, err error) {
 
-	if len(c.outboundBuffer) > 0 {
-		return -1, errors.New("Previous data waiting")
-	}
-
-	bufferedLen := len(c.outboundBuffer)
-
+	// if len(c.outboundBuffer) > 0 {
+	// return -1, errors.New("Previous data waiting")
+	// }
+	sentSum := 0
+	// bufferedLen := len(c.outboundBuffer)
 	sent, err := unix.Write(c.Fd(), p)
-	for sent < len(c.outboundBuffer) {
-		if sent < bufferedLen {
-			c.outboundBuffer = c.outboundBuffer[sent:]
-		}
+	if sent != -1 {
+		p = p[sent:]
+		sentSum += sent
 	}
-	return -1, err
+	for sent > 0 {
+		sent, err = unix.Write(c.Fd(), p)
+		p = p[sent:]
+		sentSum += sent
+		// if sent < bufferedLen {
+		// c.outboundBuffer = c.outboundBuffer[sent:]
+		// }
+	}
+	return sentSum, err
 }
 
 //Async Write
