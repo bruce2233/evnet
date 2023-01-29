@@ -86,7 +86,17 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 	if n <= 0 {
 		return c.inboundBuffer, nil
 	}
+	defer c.Discard(-1)
 	return nil, nil
+}
+
+func (c *conn) Discard(n int)(int, error){
+	if n == -1{
+		discardedLen := len(c.inboundBuffer)
+		c.inboundBuffer = make([]byte, 0)
+		return discardedLen, nil
+	}
+	return 0,nil
 }
 
 func (c conn) Fd() int {
