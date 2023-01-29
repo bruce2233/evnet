@@ -41,7 +41,6 @@ type SubReactor struct {
 	eventHandlerPP **EventHandler
 	connections    map[int]*conn
 	buffer         []byte
-	asyncTaskQueue []Task
 }
 
 type PollAttachment struct {
@@ -52,7 +51,7 @@ type PollAttachment struct {
 var subReactorBufferCap = 64 * 1024
 var SubReactorsNum = 5
 
-// create a new poller
+//create a new poller
 func OpenPoller() (poller *Poller, err error) {
 	poller = new(Poller)
 	if poller.Fd, err = unix.EpollCreate1(unix.EPOLL_CLOEXEC); err != nil {
@@ -77,14 +76,14 @@ func OpenPoller() (poller *Poller, err error) {
 	return
 }
 
-// The proto paramater MUST be "tcp"
-// The addr parameter
+//The proto paramater MUST be "tcp"
+//The addr parameter
 func (mainReactor *MainReactor) Listen(proto, addr string) (fd int, netAddr net.Addr, err error) {
 	fd, netAddr, err = TcpSocket(proto, addr, true)
 	return
 }
 
-// Create poller and listener for mainReactor
+//Create poller and listener for mainReactor
 func (mr *MainReactor) Init(proto, addr string) error {
 	//init poller
 	p, err := OpenPoller()
@@ -133,12 +132,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 
 func startSubReactor(sr *SubReactor) {
 	// sr.poller.Polling()
-	// sr.Loop()
-	sr.Polling(func(fd int, ev uint32) error {
-		if ev&OutEvents != 0 {
-			sr.asyncTaskQueue
-		}
-	})
+	sr.Loop()
 }
 
 func (mr *MainReactor) SetEventHandler(eh EventHandler) {
@@ -201,11 +195,36 @@ func (sr *SubReactor) Loop() {
 	}
 }
 
-func (sr *SubReactor) Polling(callback func(fd int, ev uint32) error) {
+func (sr *SubReactor) Polling(callback func(fd int, events uint32)error){
 	eventsList := polling(sr.poller.Fd)
-	for _, eventsItem := range eventsList {
-		callback(eventsItem.Fd, eventsItem.Events)
+	for _,eventsItem :=range eventsList{
+		callback(int(eventsItem.Fd), eventsItem.Events)
 	}
+}
+
+const (
+	PollEventsCap = 128
+)
+func polling(epfd int) []unix.EpollEvent {
+	eventsList := make([]unix.EpollEvent, PollEventsCap)
+
+	var n int
+	var err error
+	for {
+		n, err = unix.EpollWait(epfd, eventsList, -1)
+		log.Println("epoll trigger")
+		// if return EINTR, EpollWait again
+		// debugging will trigger unix.EINTR error
+		if n < 0 && err == unix.EINTR {
+			runtime.Gosched()
+			continue
+		} else if err != nil {
+			// logging.Errorf("error occurs in polling: %v", os.NewSyscallError("epoll_wait", err))
+			panic("EpollWait Error")
+		}
+		break
+	}
+	return eventsList[:n]
 }
 
 func (sr *SubReactor) read(c *conn) error {
@@ -224,7 +243,6 @@ func (sr *SubReactor) read(c *conn) error {
 	}
 	c.inboundBuffer = sr.buffer[:n]
 	(**sr.eventHandlerPP).OnTraffic(c)
-
 	return nil
 }
 
@@ -284,38 +302,11 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 	return -1, nil, err
 }
 
-func polling(epfd int) []unix.EpollEvent {
-	eventsList := make([]unix.EpollEvent, 128)
-
-	var n int
-	var err error
-	for {
-		n, err = unix.EpollWait(epfd, eventsList, -1)
-		log.Println("epoll trigger")
-		// if return EINTR, EpollWait again
-		// debugging will trigger unix.EINTR error
-		if n < 0 && err == unix.EINTR {
-			runtime.Gosched()
-			continue
-		} else if err != nil {
-			// logging.Errorf("error occurs in polling: %v", os.NewSyscallError("epoll_wait", err))
-			panic("EpollWait Error")
-		}
-		break
-	}
-	return eventsList[:n]
+//block
+func (poller *Poller) Polling() []unix.EpollEvent {
+	// log.Println("poller start waiting", poller.Fd)
+	eventList := polling(poller.Fd)
+	return eventList
 }
 
-type Task interface {
-	Run()
-}
 
-type WriteTask struct {
-	writeData []byte
-}
-
-func (wt *WriteTask) Run(c Conn) {
-	//working
-	n, err := unix.Write(wt.writeData)
-	c.writeData = wt.writeData[n:]
-}
