@@ -29,6 +29,7 @@ type Writer interface {
 
 	AsyncWrite([]byte, func(Conn) error) error
 }
+
 type conn struct {
 	fd             int
 	localAddr      net.Addr
@@ -36,6 +37,20 @@ type conn struct {
 	inboundBuffer  []byte
 	outboundBuffer []byte
 	reactor        *SubReactor
+}
+
+type connWithContext[T any] struct {
+	conn
+	context T
+}
+
+func SetContext[T any](c connWithContext[T], context T) T {
+	c.context = context
+	return c.context
+}
+
+func Context[T any](c connWithContext[T]) T {
+	return c.context
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
@@ -90,13 +105,13 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 	return nil, nil
 }
 
-func (c *conn) Discard(n int)(int, error){
-	if n == -1{
+func (c *conn) Discard(n int) (int, error) {
+	if n == -1 {
 		discardedLen := len(c.inboundBuffer)
 		c.inboundBuffer = make([]byte, 0)
 		return discardedLen, nil
 	}
-	return 0,nil
+	return 0, nil
 }
 
 func (c conn) Fd() int {

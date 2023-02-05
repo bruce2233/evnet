@@ -41,6 +41,7 @@ type SubReactor struct {
 	eventHandlerPP **EventHandler
 	connections    map[int]*conn
 	buffer         []byte
+	c              connWithContext[any]
 }
 
 type PollAttachment struct {
@@ -195,9 +196,9 @@ func (sr *SubReactor) Loop() {
 	}
 }
 
-func (sr *SubReactor) Polling(callback func(fd int, events uint32)error){
+func (sr *SubReactor) Polling(callback func(fd int, events uint32) error) {
 	eventsList := polling(sr.poller.Fd)
-	for _,eventsItem :=range eventsList{
+	for _, eventsItem := range eventsList {
 		callback(int(eventsItem.Fd), eventsItem.Events)
 	}
 }
@@ -205,6 +206,7 @@ func (sr *SubReactor) Polling(callback func(fd int, events uint32)error){
 const (
 	PollEventsCap = 128
 )
+
 func polling(epfd int) []unix.EpollEvent {
 	eventsList := make([]unix.EpollEvent, PollEventsCap)
 
@@ -308,5 +310,3 @@ func (poller *Poller) Polling() []unix.EpollEvent {
 	eventList := polling(poller.Fd)
 	return eventList
 }
-
-

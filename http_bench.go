@@ -15,6 +15,6 @@ func (hs HttpServer) OnTraffic(c Conn){
 }
 
 func TestHttpBench(t *testing.T){
-
+	
 }
 
