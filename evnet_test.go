@@ -82,7 +82,7 @@ func TestClientWrite(t *testing.T) {
 }
 
 func TestNet(t *testing.T) {
-	conn, err := net.Dial("tcp", "127.0.0.1:9000")
+	conn, err := net.Dial("tcp", "192.168.87.141:9000")
 	if err != nil {
 		t.Log(err)
 	}
@@ -93,13 +93,13 @@ func TestNet(t *testing.T) {
 		t.Log(err)
 	}
 	t.Log(n)
-	total := 0
-	for {
-		inData := make([]byte, 1024*1024)
-		conn.Read(inData)
-		t.Log("new: ", len(inData), "total: ", total)
-		total += len(inData)
-	}
+	// total := 0
+	// for {
+	// 	inData := make([]byte, 10*1024)
+	// 	conn.Read(inData)
+	// 	t.Log("new: ", len(inData), "total: ", total)
+	// 	total += len(inData)
+	// }
 	// conn.Close()
 }
 
