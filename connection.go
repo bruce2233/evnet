@@ -22,6 +22,10 @@ type Conn interface {
 
 	// RemoteAddr is the connection's remote peer address.
 	RemoteAddr() (addr net.Addr)
+
+	SetContext(ctx interface{})
+
+	Context() interface{}
 }
 
 type Writer interface {
@@ -37,20 +41,7 @@ type conn struct {
 	inboundBuffer  []byte
 	outboundBuffer []byte
 	reactor        *SubReactor
-}
-
-type connWithContext[T any] struct {
-	conn
-	context T
-}
-
-func SetContext[T any](c connWithContext[T], context T) T {
-	c.context = context
-	return c.context
-}
-
-func Context[T any](c connWithContext[T]) T {
-	return c.context
+	ctx            interface{}
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
@@ -114,16 +105,24 @@ func (c *conn) Discard(n int) (int, error) {
 	return 0, nil
 }
 
-func (c conn) Fd() int {
+func (c *conn) Fd() int {
 	return c.fd
 }
 
-func (c conn) LocalAddr() net.Addr {
+func (c *conn) LocalAddr() net.Addr {
 	return c.localAddr
 }
 
-func (c conn) RemoteAddr() net.Addr {
+func (c *conn) RemoteAddr() net.Addr {
 	return c.remoteAddr
+}
+
+func (c *conn) SetContext(ctx interface{}) {
+	c.ctx = ctx
+}
+
+func (c *conn) Context() interface{} {
+	return c.ctx
 }
 
 func NewConn(fd int, la net.Addr, ra net.Addr) (Conn, error) {
