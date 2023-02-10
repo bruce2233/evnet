@@ -7,6 +7,7 @@ type EventHandler interface {
 	OnConn(c Conn)
 	OnClose(c Conn)
 	OnTraffic(c Conn)
+	OnOpen(c Conn)
 }
 
 type BuiltinEventHandler struct {
@@ -22,4 +23,8 @@ func (builtinEventHandler BuiltinEventHandler) OnClose(c Conn) {
 
 func (builtinEventHandler BuiltinEventHandler) OnTraffic(c Conn) {
 	log.Println("OnClose triggered ", c.Fd())
+}
+
+func (builtinEventHandler BuiltinEventHandler) OnOpen(c Conn) {
+	log.Fatalln("OnOpen triggered ", c.Fd())
 }

@@ -1,9 +1,11 @@
 package evnet
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"net"
+	"reflect"
 	"testing"
 
 	. "github.com/bruce2233/evnet/socket"
@@ -25,6 +27,7 @@ type MyHandler struct {
 
 func (mh MyHandler) OnTraffic(c Conn) {
 	p, _ := c.Next(-1)
+	c.Write(p)
 	log.Println("receive", len(p))
 }
 
@@ -34,7 +37,7 @@ func (mh MyHandler) OnClose(c Conn) {
 func TestMainRec(t *testing.T) {
 	ts := testServer{
 		network: "tcp",
-		address: "127.0.0.1:9000",
+		address: "192.168.87.141:9000",
 	}
 	readHandler := MyHandler{BuiltinEventHandler{}}
 	// Run(readHandler, ts.network+"://"+ts.address, WithLogPath("tmp.log"))
@@ -42,26 +45,31 @@ func TestMainRec(t *testing.T) {
 }
 
 const (
-	CLIENTNUM = 100
+	CLIENTNUM = 10
 )
 
-func TestServer(t *testing.T) {
-	tsNetWord := "tcp"
-	tsAddress := "127.0.0.1:9000"
-	ts := MyHandler{
-		BuiltinEventHandler{},
-	}
-	Run(ts, tsNetWord+"://"+tsAddress)
-
-}
 func TestClientWrite(t *testing.T) {
 	done := make(chan bool)
-
+	const reqDataSize int = 10240
 	for i := 0; i < CLIENTNUM; i++ {
-		go writeData(t, "tcp", "127.0.0.1:9000", done, func(c net.Conn) {
-			respData := make([]byte, 1024)
+		go func() {
+			reqData := make([]byte, reqDataSize)
+			rand.Read(reqData)
+			t.Log(reqData)
+			c, err := net.Dial("tcp", "192.168.87.141:9000")
+			if err != nil {
+				t.Log(err)
+			}
+			c.Write(reqData)
+
+			respData := make([]byte, reqDataSize)
 			c.Read(respData)
-		})
+			t.Log(respData)
+			if !reflect.DeepEqual(reqData, respData) {
+				t.Log(errors.New("write data and read data error"))
+			}
+			done <- true
+		}()
 	}
 	// time.Sleep(10 * time.Second)
 	ack := CLIENTNUM
@@ -74,7 +82,7 @@ func TestClientWrite(t *testing.T) {
 }
 
 func TestNet(t *testing.T) {
-	conn, err := net.Dial("tcp", "127.0.0.1:9000")
+	conn, err := net.Dial("tcp", "192.168.87.141:9000")
 	if err != nil {
 		t.Log(err)
 	}
@@ -85,25 +93,14 @@ func TestNet(t *testing.T) {
 		t.Log(err)
 	}
 	t.Log(n)
-	total := 0
-	for {
-		inData := make([]byte, 1024*1024)
-		conn.Read(inData)
-		t.Log("new: ", len(inData), "total: ", total)
-		total += len(inData)
-	}
+	// total := 0
+	// for {
+	// 	inData := make([]byte, 10*1024)
+	// 	conn.Read(inData)
+	// 	t.Log("new: ", len(inData), "total: ", total)
+	// 	total += len(inData)
+	// }
 	// conn.Close()
-}
-
-func writeData(t *testing.T, network, address string, done chan bool, callback func(c net.Conn)) {
-	reqData := make([]byte, streamLen)
-	rand.Read(reqData)
-	c, _ := net.Dial(network, address)
-	defer c.Close()
-	n, err := c.Write(reqData)
-	t.Log(n, err)
-	// time.Sleep(1000)
-	done <- true
 }
 
 func TestEpollWait(t *testing.T) {

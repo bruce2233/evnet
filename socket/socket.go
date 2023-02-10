@@ -4,7 +4,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/panjf2000/gnet/v2/pkg/errors"
+	"errors"
 	"golang.org/x/sys/unix"
 )
 
@@ -56,7 +56,7 @@ func GetTCPSockAddr(proto, addr string) (sa unix.Sockaddr, family int, tcpAddr *
 
 		sa, family = sa6, unix.AF_INET6
 	default:
-		err = errors.ErrUnsupportedProtocol
+		err = errors.New("ErrUnsupportedProtocol")
 	}
 
 	return
@@ -124,5 +124,5 @@ func determineTCPProto(proto string, addr *net.TCPAddr) (string, error) {
 		return proto, nil
 	}
 
-	return "", errors.ErrUnsupportedTCPProtocol
+	return "", errors.New("ErrUnsupportedTCPProtocol")
 }

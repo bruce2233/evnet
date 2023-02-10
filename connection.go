@@ -22,6 +22,10 @@ type Conn interface {
 
 	// RemoteAddr is the connection's remote peer address.
 	RemoteAddr() (addr net.Addr)
+
+	SetContext(ctx interface{})
+
+	Context() interface{}
 }
 
 type Writer interface {
@@ -29,6 +33,7 @@ type Writer interface {
 
 	AsyncWrite([]byte, func(Conn) error) error
 }
+
 type conn struct {
 	fd             int
 	localAddr      net.Addr
@@ -36,6 +41,7 @@ type conn struct {
 	inboundBuffer  []byte
 	outboundBuffer []byte
 	reactor        *SubReactor
+	ctx            interface{}
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
@@ -49,19 +55,25 @@ func (c conn) Read(p []byte) (n int, err error) {
 //sync Write
 func (c *conn) Write(p []byte) (n int, err error) {
 
-	if len(c.outboundBuffer) > 0 {
-		return -1, errors.New("Previous data waiting")
-	}
-
-	bufferedLen := len(c.outboundBuffer)
-
+	// if len(c.outboundBuffer) > 0 {
+	// return -1, errors.New("Previous data waiting")
+	// }
+	sentSum := 0
+	// bufferedLen := len(c.outboundBuffer)
 	sent, err := unix.Write(c.Fd(), p)
-	for sent < len(c.outboundBuffer) {
-		if sent < bufferedLen {
-			c.outboundBuffer = c.outboundBuffer[sent:]
-		}
+	if sent != -1 {
+		p = p[sent:]
+		sentSum += sent
 	}
-	return -1, err
+	for sent > 0 {
+		sent, err = unix.Write(c.Fd(), p)
+		p = p[sent:]
+		sentSum += sent
+		// if sent < bufferedLen {
+		// c.outboundBuffer = c.outboundBuffer[sent:]
+		// }
+	}
+	return sentSum, err
 }
 
 //Async Write
@@ -80,19 +92,37 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 	if n <= 0 {
 		return c.inboundBuffer, nil
 	}
+	defer c.Discard(-1)
 	return nil, nil
 }
 
-func (c conn) Fd() int {
+func (c *conn) Discard(n int) (int, error) {
+	if n == -1 {
+		discardedLen := len(c.inboundBuffer)
+		c.inboundBuffer = make([]byte, 0)
+		return discardedLen, nil
+	}
+	return 0, nil
+}
+
+func (c *conn) Fd() int {
 	return c.fd
 }
 
-func (c conn) LocalAddr() net.Addr {
+func (c *conn) LocalAddr() net.Addr {
 	return c.localAddr
 }
 
-func (c conn) RemoteAddr() net.Addr {
+func (c *conn) RemoteAddr() net.Addr {
 	return c.remoteAddr
+}
+
+func (c *conn) SetContext(ctx interface{}) {
+	c.ctx = ctx
+}
+
+func (c *conn) Context() interface{} {
+	return c.ctx
 }
 
 func NewConn(fd int, la net.Addr, ra net.Addr) (Conn, error) {
