@@ -159,7 +159,7 @@ func (mainReactor *MainReactor) Loop() {
 		//working
 		for _, v := range eventsList {
 			nfd, raddr, err := AcceptSocket(int(v.Fd))
-			log.Println("debug: ", nfd, raddr.Network(), raddr.String())
+			// log.Println("debug: ", nfd, raddr.Network(), raddr.String())
 			os.NewSyscallError("AcceptSocket Err", err)
 			//convert from nfd, tcpAddr to a socket
 			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
@@ -245,7 +245,16 @@ func (sr *SubReactor) read(c *conn) error {
 		return unix.ECONNRESET
 	}
 	c.inboundBuffer = sr.buffer[:n]
-	(**sr.eventHandlerPP).OnTraffic(c)
+	err = (**sr.eventHandlerPP).OnTraffic(c)
+	if err != nil {
+		if err == ErrClose {
+			log.Println("debug:  ErrClose")
+			sr.closeConn(c)
+		}
+		if err.Error() == "Shutdown" {
+			log.Println("debug:  ErrShutdonw")
+		}
+	}
 	return nil
 }
 
