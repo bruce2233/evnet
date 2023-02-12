@@ -25,14 +25,16 @@ type MyHandler struct {
 	BuiltinEventHandler
 }
 
-func (mh MyHandler) OnTraffic(c Conn) {
+func (mh MyHandler) OnTraffic(c Conn) error{
 	p, _ := c.Next(-1)
 	c.Write(p)
 	log.Println("receive", len(p))
+	return nil
 }
 
-func (mh MyHandler) OnClose(c Conn) {
+func (mh MyHandler) OnClose(c Conn) error{
 	log.Println("On Close Trigger")
+	return nil
 }
 func TestMainRec(t *testing.T) {
 	ts := testServer{

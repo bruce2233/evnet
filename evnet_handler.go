@@ -1,30 +1,50 @@
 package evnet
 
-import "log"
+import (
+	"errors"
+	"log"
+)
 
 type EventHandler interface {
 	//working
-	OnConn(c Conn)
-	OnClose(c Conn)
-	OnTraffic(c Conn)
-	OnOpen(c Conn)
+	OnConn(c Conn) error
+	OnClose(c Conn) error
+	OnTraffic(c Conn) error
+	OnOpen(c Conn) error
+	OnShutdown(mr *MainReactor) error
 }
+
+var (
+	//close the connection
+	ErrClose = errors.New("Close")
+	//shutdown the reactor
+	ErrShutdown = errors.New("Shutdown")
+)
 
 type BuiltinEventHandler struct {
 }
 
-func (builtinEventHandler BuiltinEventHandler) OnConn(c Conn) {
+func (builtinEventHandler BuiltinEventHandler) OnConn(c Conn) error {
 	log.Println("OnConn triggered ", c.Fd())
+	return nil
 }
 
-func (builtinEventHandler BuiltinEventHandler) OnClose(c Conn) {
+func (builtinEventHandler BuiltinEventHandler) OnClose(c Conn) error {
 	log.Println("OnClose triggered ", c.Fd())
+	return nil
 }
 
-func (builtinEventHandler BuiltinEventHandler) OnTraffic(c Conn) {
+func (builtinEventHandler BuiltinEventHandler) OnTraffic(c Conn) error {
 	log.Println("OnClose triggered ", c.Fd())
+	return nil
 }
 
-func (builtinEventHandler BuiltinEventHandler) OnOpen(c Conn) {
+func (builtinEventHandler BuiltinEventHandler) OnOpen(c Conn) error {
 	log.Fatalln("OnOpen triggered ", c.Fd())
+	return nil
+}
+
+func (builtinEventHandler BuiltinEventHandler) OnShutdown(mr *MainReactor) error {
+	log.Fatalln("OnShutdown triggered ")
+	return nil
 }
