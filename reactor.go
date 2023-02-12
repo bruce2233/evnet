@@ -19,6 +19,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"sync"
 
 	. "github.com/bruce2233/evnet/socket"
 
@@ -34,9 +35,11 @@ type MainReactor struct {
 	poller         *Poller
 	eventHandlerPP **EventHandler
 	listener       Listener
+	cond           *sync.Cond
 }
 
 type SubReactor struct {
+	mr             *MainReactor
 	poller         *Poller
 	eventHandlerPP **EventHandler
 	connections    map[int]*conn
@@ -91,16 +94,17 @@ func (mr *MainReactor) Init(proto, addr string) error {
 		return err
 	}
 	mr.poller = p
-	log.Println("init main poller: ", p)
+	log.Println("debug:  init main poller: ", p)
 
 	//init subReactor
 	for i := 0; i < SubReactorsNum; i++ {
-		newSubReactor := &SubReactor{}
-		newSubReactor.poller, err = OpenPoller()
-		newSubReactor.connections = make(map[int]*conn)
-		newSubReactor.buffer = make([]byte, subReactorBufferCap)
-		newSubReactor.eventHandlerPP = mr.eventHandlerPP
-		mr.subReactors = append(mr.subReactors, newSubReactor)
+		newSr := &SubReactor{}
+		newSr.poller, err = OpenPoller()
+		newSr.connections = make(map[int]*conn)
+		newSr.buffer = make([]byte, subReactorBufferCap)
+		newSr.eventHandlerPP = mr.eventHandlerPP
+		newSr.mr = mr
+		mr.subReactors = append(mr.subReactors, newSr)
 	}
 	if err != nil {
 		return err
@@ -115,6 +119,9 @@ func (mr *MainReactor) Init(proto, addr string) error {
 
 	//add listenerFd epoll
 	mr.poller.AddPollRead(mr.listener.Fd)
+
+	//create sync.Cond
+	mr.cond = sync.NewCond(&sync.Mutex{})
 
 	//start subReactor
 	for i := range mr.subReactors {
@@ -133,6 +140,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 func startSubReactor(sr *SubReactor) {
 	// sr.poller.Polling()
 	sr.Loop()
+	sr.mr.signalShutdown()
 }
 
 func (mr *MainReactor) SetEventHandler(eh EventHandler) {
@@ -173,7 +181,24 @@ func (mainReactor *MainReactor) Loop() {
 	}
 }
 
-func (sr *SubReactor) Loop() {
+func (mr *MainReactor) waitForShutdown() {
+	mr.cond.L.Lock()
+	mr.cond.Wait()
+	mr.cond.L.Unlock()
+}
+
+func (mr *MainReactor) signalShutdown() {
+	mr.cond.L.Lock()
+	mr.cond.Signal()
+	mr.cond.L.Unlock()
+}
+
+func (mr *MainReactor) stop() {
+	(**mr.eventHandlerPP).OnShutdown(mr)
+	//close sr goroutine here, working...
+}
+
+func (sr *SubReactor) Loop() error {
 	for {
 		log.Println("debug: ", "SubReactor start polling", sr.poller.Fd)
 		eventList := sr.poller.Polling()
@@ -191,10 +216,16 @@ func (sr *SubReactor) Loop() {
 				c := sr.connections[int(event.Fd)]
 				// log.Printf(, c.RemoteAddr())
 				log.Printf("\x1b[0;%dm%s\x1b[0m%s\x1b[0;%dm%v\x1b[0m\n", 32, "debug:  ", "subReactor InEvents from: ", 32, c.RemoteAddr())
-				sr.read(c)
+				err := sr.read(c)
+				if err != nil {
+					if err == ErrShutdown {
+						return ErrShutdown
+					}
+				}
 			}
 		}
 	}
+	return nil
 }
 
 func (sr *SubReactor) Polling(callback func(fd int, events uint32) error) {
@@ -253,6 +284,7 @@ func (sr *SubReactor) read(c *conn) error {
 		}
 		if err.Error() == "Shutdown" {
 			log.Println("debug:  ErrShutdonw")
+			return err
 		}
 	}
 	return nil

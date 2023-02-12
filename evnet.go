@@ -19,9 +19,12 @@ func Run(eventHandler EventHandler, protoAddr string, optList ...Option) {
 	log.Println("log test")
 	//options working
 	network, address := parseProtoAddr(protoAddr)
+
+	//mainReactor initialize
 	mr := new(MainReactor)
 	mr.Init(network, address)
 	mr.SetEventHandler(eventHandler)
+
 	serve(mr)
 }
 
@@ -37,5 +40,7 @@ func parseProtoAddr(protoAddr string) (network, address string) {
 }
 
 func serve(mr *MainReactor) {
-	mr.Loop()
+	go mr.Loop()
+	mr.waitForShutdown()
+	mr.stop()
 }
