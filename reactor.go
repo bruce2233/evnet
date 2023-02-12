@@ -26,10 +26,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type eventLoop struct {
-	eventHandler EventHandler
-}
-
 type MainReactor struct {
 	subReactors    []*SubReactor
 	poller         *Poller

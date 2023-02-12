@@ -9,7 +9,7 @@ import (
 func Run(eventHandler EventHandler, protoAddr string, optList ...Option) {
 	opts := loadOptions(optList)
 	if opts.LogPath != "" {
-		outputFile, err := os.OpenFile(opts.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 777)
+		outputFile, err := os.OpenFile(opts.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0777)
 		if err != nil {
 			log.Println("log file open error")
 		}

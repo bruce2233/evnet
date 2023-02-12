@@ -80,7 +80,7 @@ func (c *conn) Write(p []byte) (n int, err error) {
 func (c *conn) AsyncWrite(p []byte, AfterWritten func(c Conn) (err error)) error {
 
 	if len(c.outboundBuffer) > 0 {
-		return errors.New("Previous data waiting")
+		return errors.New("previous data waiting")
 	}
 	c.outboundBuffer = p
 	c.reactor.poller.ModReadWrite(c.Fd())
