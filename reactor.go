@@ -14,6 +14,7 @@
 package evnet
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"net"
@@ -287,16 +288,35 @@ func (sr *SubReactor) read(c *conn) error {
 }
 
 func (sr *SubReactor) write(c *conn) error {
+	//try to current task's data
+	//one task's data may consume sr.write more then one time.
 	buffedLen := len(c.outboundBuffer)
+
 	n, err := unix.Write(c.Fd(), c.outboundBuffer)
 	if err != nil {
 		log.Println("error: ", "subReactor Write error")
 	}
 	if n == buffedLen {
+		cur := c.asyncTaskQueueFront
+		// execute AfterWritten callback
+		if cur != nil {
+			c.asyncTaskQueueFront.AfterWritten(c)
+		}else{
+			return errors.New("error:  sr try to write a nil asyncWriteQueue")
+		}
+		// iterate the asyncTaskQueue
+		q := cur.next
+		c.asyncTaskQueueFront = q
+		if q != nil {
+			c.outboundBuffer = q.next.data
+		} else {
+			c.asyncTaskQueueRear = nil
+			return errors.New("error: no task to execute")
+		}
+	} else {
 		c.outboundBuffer = c.outboundBuffer[n:]
 	}
-	c.outboundBuffer = c.outboundBuffer[n:]
-	return err
+	return nil
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {

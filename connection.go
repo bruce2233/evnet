@@ -1,7 +1,6 @@
 package evnet
 
 import (
-	"errors"
 	"io"
 	"net"
 
@@ -34,14 +33,22 @@ type Writer interface {
 	AsyncWrite([]byte, func(Conn) error) error
 }
 
+type task struct {
+	data         []byte
+	AfterWritten func(Conn) error
+	next         *task
+}
+
 type conn struct {
-	fd             int
-	localAddr      net.Addr
-	remoteAddr     net.Addr
-	inboundBuffer  []byte
-	outboundBuffer []byte
-	reactor        *SubReactor
-	ctx            interface{}
+	fd                  int
+	localAddr           net.Addr
+	remoteAddr          net.Addr
+	inboundBuffer       []byte
+	outboundBuffer      []byte
+	reactor             *SubReactor
+	ctx                 interface{}
+	asyncTaskQueueFront *task
+	asyncTaskQueueRear  *task
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
@@ -76,13 +83,19 @@ func (c *conn) Write(p []byte) (n int, err error) {
 	return sentSum, err
 }
 
-//Async Write
+//unsafe Async Write
 func (c *conn) AsyncWrite(p []byte, AfterWritten func(c Conn) (err error)) error {
 
-	if len(c.outboundBuffer) > 0 {
-		return errors.New("previous data waiting")
+	newTask := &task{
+		data:         p,
+		AfterWritten: AfterWritten,
 	}
-	c.outboundBuffer = p
+	if c.asyncTaskQueueFront == nil {
+		c.asyncTaskQueueFront = newTask
+		c.asyncTaskQueueRear = newTask
+	} else {
+		c.asyncTaskQueueRear.next = newTask
+	}
 	c.reactor.poller.ModReadWrite(c.Fd())
 	return nil
 }
@@ -130,5 +143,7 @@ func NewConn(fd int, la net.Addr, ra net.Addr) (Conn, error) {
 	conn.fd = fd
 	conn.localAddr = la
 	conn.remoteAddr = ra
+	conn.asyncTaskQueueFront = nil
+	conn.asyncTaskQueueRear = nil
 	return conn, nil
 }
