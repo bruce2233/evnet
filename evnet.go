@@ -40,6 +40,7 @@ func parseProtoAddr(protoAddr string) (network, address string) {
 }
 
 func serve(mr *MainReactor) {
+	(**mr.eventHandlerPP).OnBoot(mr)
 	go mr.Loop()
 	mr.waitForShutdown()
 	mr.stop()

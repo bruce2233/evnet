@@ -12,6 +12,7 @@ type EventHandler interface {
 	OnTraffic(c Conn) error
 	OnOpen(c Conn) error
 	OnShutdown(mr *MainReactor) error
+	OnBoot(mr *MainReactor) error
 }
 
 var (
@@ -46,5 +47,10 @@ func (builtinEventHandler BuiltinEventHandler) OnOpen(c Conn) error {
 
 func (builtinEventHandler BuiltinEventHandler) OnShutdown(mr *MainReactor) error {
 	log.Fatalln("OnShutdown triggered ")
+	return nil
+}
+
+func (builtinEventHandler BuiltinEventHandler) OnBoot(mr *MainReactor) error {
+	log.Fatalln("OnBoot triggered ")
 	return nil
 }

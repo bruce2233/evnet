@@ -18,6 +18,12 @@ type httpCodec struct {
 	buf    []byte
 }
 
+func (hs *HttpServer) OnBoot(mr *MainReactor) error {
+	log.Println("\n=================Welcome!=================")
+	log.Println("\n███████╗██╗░░░██╗███╗░░██╗███████╗████████╗\n██╔════╝██║░░░██║████╗░██║██╔════╝╚══██╔══╝\n█████╗░░╚██╗░██╔╝██╔██╗██║█████╗░░░░░██║░░░\n██╔══╝░░░╚████╔╝░██║╚████║██╔══╝░░░░░██║░░░\n███████╗░░╚██╔╝░░██║░╚███║███████╗░░░██║░░░\n╚══════╝░░░╚═╝░░░╚═╝░░╚══╝╚══════╝░░░╚═╝░░░")
+	return nil
+}
+
 func (hs *HttpServer) OnTraffic(c Conn) error {
 	// httpParser := wildcat.HTTPParser{}
 	// println(httpParser.Version)
@@ -36,7 +42,7 @@ func (hs *HttpServer) OnTraffic(c Conn) error {
 	}
 	// buf = buf[headerOffset+bodyLen:]
 
-	c.Write(hc.buf)
+	c.AsyncWrite(hc.buf, nil)
 	hc.buf = hc.buf[:0]
 	return nil
 }
