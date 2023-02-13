@@ -297,23 +297,25 @@ func (sr *SubReactor) write(c *conn) error {
 		log.Println("error: ", "subReactor Write error")
 	}
 	if n == buffedLen {
-		cur := c.asyncTaskQueueFront
+		//the c.outbound data belongs to the peek of queue
+		cur := c.asyncTaskQueue.Dequeue()
 		// execute AfterWritten callback
 		if cur != nil {
-			c.asyncTaskQueueFront.AfterWritten(c)
-		}else{
-			return errors.New("error:  sr try to write a nil asyncWriteQueue")
+			if cur.AfterWritten != nil {
+				cur.AfterWritten(c)
+			}
+		} else {
+			return errors.New("try to write a nil asyncWriteQueue")
 		}
 		// iterate the asyncTaskQueue
-		q := cur.next
-		c.asyncTaskQueueFront = q
-		if q != nil {
-			c.outboundBuffer = q.next.data
+		if c.asyncTaskQueue.Empty() {
+			c.reactor.poller.ModRead(c.Fd())
+			return errors.New("empty queue")
 		} else {
-			c.asyncTaskQueueRear = nil
-			return errors.New("error: no task to execute")
+			c.outboundBuffer = c.asyncTaskQueue.Peek().data
 		}
 	} else {
+		//write the left data
 		c.outboundBuffer = c.outboundBuffer[n:]
 	}
 	return nil
@@ -336,6 +338,7 @@ func registerConn(sr *SubReactor, connItf Conn) error {
 	c := connItf.(*conn)
 	(*(*sr.eventHandlerPP)).OnOpen(c)
 	sr.connections[connItf.Fd()] = c
+	c.reactor = sr
 	sr.poller.AddPollRead(connItf.Fd())
 	return nil
 }

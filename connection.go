@@ -5,6 +5,7 @@ import (
 	"net"
 
 	. "github.com/bruce2233/evnet/socket"
+	"github.com/zyedidia/generic/queue"
 	"golang.org/x/sys/unix"
 )
 
@@ -40,15 +41,14 @@ type task struct {
 }
 
 type conn struct {
-	fd                  int
-	localAddr           net.Addr
-	remoteAddr          net.Addr
-	inboundBuffer       []byte
-	outboundBuffer      []byte
-	reactor             *SubReactor
-	ctx                 interface{}
-	asyncTaskQueueFront *task
-	asyncTaskQueueRear  *task
+	fd             int
+	localAddr      net.Addr
+	remoteAddr     net.Addr
+	inboundBuffer  []byte
+	outboundBuffer []byte
+	reactor        *SubReactor
+	ctx            interface{}
+	asyncTaskQueue *queue.Queue[*task]
 }
 
 func (c conn) Read(p []byte) (n int, err error) {
@@ -90,12 +90,10 @@ func (c *conn) AsyncWrite(p []byte, AfterWritten func(c Conn) (err error)) error
 		data:         p,
 		AfterWritten: AfterWritten,
 	}
-	if c.asyncTaskQueueFront == nil {
-		c.asyncTaskQueueFront = newTask
-		c.asyncTaskQueueRear = newTask
-	} else {
-		c.asyncTaskQueueRear.next = newTask
+	if c.asyncTaskQueue.Empty() {
+		c.outboundBuffer = newTask.data
 	}
+	c.asyncTaskQueue.Enqueue(newTask)
 	c.reactor.poller.ModReadWrite(c.Fd())
 	return nil
 }
@@ -143,7 +141,6 @@ func NewConn(fd int, la net.Addr, ra net.Addr) (Conn, error) {
 	conn.fd = fd
 	conn.localAddr = la
 	conn.remoteAddr = ra
-	conn.asyncTaskQueueFront = nil
-	conn.asyncTaskQueueRear = nil
+	conn.asyncTaskQueue = queue.New[*task]()
 	return conn, nil
 }
