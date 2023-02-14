@@ -15,12 +15,13 @@ package evnet
 
 import (
 	"errors"
-	"log"
 	"math/rand"
 	"net"
 	"os"
 	"runtime"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	. "github.com/bruce2233/evnet/socket"
 
@@ -91,7 +92,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 		return err
 	}
 	mr.poller = p
-	log.Println("debug:  init main poller: ", p)
+	log.Debug("init main poller: ", p)
 
 	//init subReactor
 	for i := 0; i < SubReactorsNum; i++ {
@@ -111,7 +112,7 @@ func (mr *MainReactor) Init(proto, addr string) error {
 	listenerFd, _, err := TcpSocket(proto, addr, true)
 	mr.listener.Fd = listenerFd
 	if err != nil {
-		log.Println("error:  ", err)
+		log.Error("error:  ", err)
 	}
 
 	//add listenerFd epoll
@@ -156,22 +157,22 @@ func setEventHandler(mr *MainReactor, eh EventHandler) {
 
 func (mainReactor *MainReactor) Loop() {
 
-	log.Println("debug: ", "mainReactor create", "poller: ", mainReactor.poller, "linstenerFd is ", mainReactor.listener.Fd)
+	log.Debug("mainReactor create", "poller: ", mainReactor.poller, "linstenerFd is ", mainReactor.listener.Fd)
 
 	for {
-		log.Println("debug: ", "main reactor start polling")
+		log.Debug("main reactor start polling")
 		eventsList := mainReactor.poller.Polling()
 		//working
 		for _, v := range eventsList {
 			nfd, raddr, err := AcceptSocket(int(v.Fd))
-			// log.Println("debug: ", nfd, raddr.Network(), raddr.String())
+			// log.Debug(nfd, raddr.Network(), raddr.String())
 			os.NewSyscallError("AcceptSocket Err", err)
 			//convert from nfd, tcpAddr to a socket
 			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
 			idx := rand.Intn(2)
 			laddr := mainReactor.listener.addr
 			c, _ := NewConn(nfd, laddr, raddr)
-			log.Println("debug: ", "mainReactor accept connection ", raddr, "to subReactor ", idx)
+			log.Debug("mainReactor accept connection ", raddr, "to subReactor ", idx)
 			sr := mainReactor.subReactors[idx]
 			registerConn(sr, c)
 		}
@@ -197,13 +198,13 @@ func (mr *MainReactor) stop() {
 
 func (sr *SubReactor) Loop() error {
 	for {
-		log.Println("debug: ", "SubReactor start polling", sr.poller.Fd)
+		log.Debug("SubReactor start polling", sr.poller.Fd)
 		eventList := sr.poller.Polling()
 		for _, event := range eventList {
-			log.Println("debug: ", "events: ", event.Events)
+			log.Debug("events: ", event.Events)
 			if event.Events&OutEvents != 0 {
 				c := sr.connections[int(event.Fd)]
-				log.Println("debug: ", "subReactor OutEvents from: ", c.RemoteAddr())
+				log.Debug("subReactor OutEvents from: ", c.RemoteAddr())
 				sr.write(c)
 			}
 
@@ -243,7 +244,7 @@ func polling(epfd int) []unix.EpollEvent {
 	var err error
 	for {
 		n, err = unix.EpollWait(epfd, eventsList, -1)
-		log.Println("debug:  ", "epoll trigger")
+		log.Debug("epoll trigger")
 		// if return EINTR, EpollWait again
 		// debugging will trigger unix.EINTR error
 		if n < 0 && err == unix.EINTR {
@@ -260,14 +261,14 @@ func polling(epfd int) []unix.EpollEvent {
 
 func (sr *SubReactor) read(c *conn) error {
 	n, err := unix.Read(c.Fd(), sr.buffer)
-	log.Println("debug: ", "sr read n:", n)
+	log.Debug("sr read n:", n)
 	// log.Println("sr.buffer len():", len(sr.buffer))
 	if n == 0 {
 		sr.closeConn(c)
 	}
 	if err != nil {
 		if err == unix.EAGAIN {
-			log.Println("err: ", unix.EAGAIN)
+			log.Warn(unix.EAGAIN)
 			return unix.EAGAIN
 		}
 		return unix.ECONNRESET
@@ -276,13 +277,13 @@ func (sr *SubReactor) read(c *conn) error {
 	err = (**sr.eventHandlerPP).OnTraffic(c)
 	if err != nil {
 		if err == ErrClose {
-			log.Println("debug:  ErrClose")
+			log.Info(ErrClose)
 			sr.closeConn(c)
 		}
-		if err.Error() == "Shutdown" {
-			log.Println("debug:  ErrShutdonw")
-			return err
+		if err == ErrShutdown {
+			log.Info(ErrShutdown)
 		}
+		return err
 	}
 	return nil
 }
@@ -294,8 +295,13 @@ func (sr *SubReactor) write(c *conn) error {
 
 	n, err := unix.Write(c.Fd(), c.outboundBuffer)
 	if err != nil {
-		log.Println("error: ", "subReactor Write error")
+		log.Warn("subReactor Write error")
+		if n == -1 {
+			log.Warn("subReactor try to write a closed conn")
+		}
+		sr.closeConn(c)
 	}
+
 	if n == buffedLen {
 		//the c.outbound data belongs to the peek of queue
 		cur := c.asyncTaskQueue.Dequeue()
@@ -360,7 +366,7 @@ func AcceptSocket(fd int) (int, net.Addr, error) {
 	case *unix.SockaddrInet4:
 		sa4, ok := sa.(*unix.SockaddrInet4)
 		if !ok {
-			log.Println("sa4 asset error")
+			log.Error("sa4 assertion error")
 		}
 		return nfd, &net.TCPAddr{IP: sa4.Addr[:], Port: sa4.Port}, err
 	}

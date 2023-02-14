@@ -1,22 +1,22 @@
 package evnet
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
+
 	"os"
 	"strings"
 )
 
-func Run(eventHandler EventHandler, protoAddr string, optList ...Option) {
+func Run(eventHandler EventHandler, protoAddr string, optList ...SetOption) {
 	opts := loadOptions(optList)
 	if opts.LogPath != "" {
 		outputFile, err := os.OpenFile(opts.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0777)
 		if err != nil {
-			log.Println("log file open error")
+			log.Error("log file open error")
 		}
 		log.SetOutput(outputFile)
 	}
-	log.SetFlags(log.Llongfile | log.Lmicroseconds | log.Ldate)
-	log.Println("log test")
+	// log.SetFlags(log.Llongfile | log.Lmicroseconds | log.Ldate)
 	//options working
 	network, address := parseProtoAddr(protoAddr)
 

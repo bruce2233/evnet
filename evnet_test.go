@@ -2,11 +2,12 @@ package evnet
 
 import (
 	"errors"
-	"log"
 	"math/rand"
 	"net"
 	"reflect"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	. "github.com/bruce2233/evnet/socket"
 
@@ -25,15 +26,15 @@ type MyHandler struct {
 	BuiltinEventHandler
 }
 
-func (mh MyHandler) OnTraffic(c Conn) error{
+func (mh MyHandler) OnTraffic(c Conn) error {
 	p, _ := c.Next(-1)
 	c.Write(p)
-	log.Println("receive", len(p))
+	log.Debug("receive", len(p))
 	return nil
 }
 
-func (mh MyHandler) OnClose(c Conn) error{
-	log.Println("On Close Trigger")
+func (mh MyHandler) OnClose(c Conn) error {
+	log.Debug("On Close Trigger")
 	return nil
 }
 func TestMainRec(t *testing.T) {
