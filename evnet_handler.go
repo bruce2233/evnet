@@ -21,6 +21,8 @@ var (
 	ErrClose = errors.New("Close")
 	//shutdown the reactor
 	ErrShutdown = errors.New("Shutdown")
+	//peer close the connection before writting completely
+	ErrClosedWhenWritting = errors.New("Closed when writting")
 )
 
 type BuiltinEventHandler struct {
