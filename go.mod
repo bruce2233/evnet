@@ -4,6 +4,8 @@ go 1.18
 
 require (
 	github.com/evanphx/wildcat v0.0.0-20141114174135-e7012f664567
+	github.com/sirupsen/logrus v1.9.0
+	github.com/zyedidia/generic v1.2.1
 	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664
 )
 
