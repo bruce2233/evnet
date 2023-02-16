@@ -1,12 +1,12 @@
 package evnet
 
 import (
-	"log"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/evanphx/wildcat"
+	log "github.com/sirupsen/logrus"
 )
 
 type HttpServer struct {
@@ -16,6 +16,12 @@ type HttpServer struct {
 type httpCodec struct {
 	parser *wildcat.HTTPParser
 	buf    []byte
+}
+
+func (hs *HttpServer) OnBoot(mr *MainReactor) error {
+	log.Infof("\n=================Welcome!=================")
+	log.Infof("\n███████╗██╗░░░██╗███╗░░██╗███████╗████████╗\n██╔════╝██║░░░██║████╗░██║██╔════╝╚══██╔══╝\n█████╗░░╚██╗░██╔╝██╔██╗██║█████╗░░░░░██║░░░\n██╔══╝░░░╚████╔╝░██║╚████║██╔══╝░░░░░██║░░░\n███████╗░░╚██╔╝░░██║░╚███║███████╗░░░██║░░░\n╚══════╝░░░╚═╝░░░╚═╝░░╚══╝╚══════╝░░░╚═╝░░░")
+	return nil
 }
 
 func (hs *HttpServer) OnTraffic(c Conn) error {
@@ -36,7 +42,7 @@ func (hs *HttpServer) OnTraffic(c Conn) error {
 	}
 	// buf = buf[headerOffset+bodyLen:]
 
-	c.Write(hc.buf)
+	c.AsyncWrite(hc.buf, nil)
 	hc.buf = hc.buf[:0]
 	return nil
 }
@@ -59,11 +65,11 @@ func (hs *HttpServer) OnOpen(c Conn) error {
 
 func TestHttpBench(t *testing.T) {
 	hs := new(HttpServer)
-	Run(hs, "tcp://192.168.87.141:9000")
+	Run(hs, "tcp://192.168.87.141:9000", WithLogLevel(log.WarnLevel))
 }
 
 func TestWriteHTTPRequest(t *testing.T) {
-	resp, err := http.Get("http://192.168.87.141:9000/example")
+	resp, err := http.Get("http://localhost:9000/index.html")
 	if err != nil {
 		t.Log(err)
 	}

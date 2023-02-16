@@ -1,22 +1,32 @@
 package evnet
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
+
 	"os"
 	"strings"
 )
 
-func Run(eventHandler EventHandler, protoAddr string, optList ...Option) {
-	opts := loadOptions(optList)
-	if opts.LogPath != "" {
-		outputFile, err := os.OpenFile(opts.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 777)
+func Run(eventHandler EventHandler, protoAddr string, optList ...SetOption) {
+	optArg := loadOptions(optList)
+
+	//set Default optArg
+	if optArg.LogPath != "" {
+		outputFile, err := os.OpenFile(optArg.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0777)
 		if err != nil {
-			log.Println("log file open error")
+			log.Error("log file open error")
 		}
 		log.SetOutput(outputFile)
+		wd, _ := os.Getwd()
+		log.Info("save log file at", wd, outputFile.Name())
 	}
-	log.SetFlags(log.Llongfile | log.Lmicroseconds | log.Ldate)
-	log.Println("log test")
+	log.SetLevel(optArg.LogLevel)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+		ForceQuote:    true,
+		ForceColors:   true,
+	})
+	// log.SetFlags(log.Llongfile | log.Lmicroseconds | log.Ldate)
 	//options working
 	network, address := parseProtoAddr(protoAddr)
 
@@ -40,6 +50,7 @@ func parseProtoAddr(protoAddr string) (network, address string) {
 }
 
 func serve(mr *MainReactor) {
+	(**mr.eventHandlerPP).OnBoot(mr)
 	go mr.Loop()
 	mr.waitForShutdown()
 	mr.stop()

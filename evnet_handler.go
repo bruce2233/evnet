@@ -2,7 +2,8 @@ package evnet
 
 import (
 	"errors"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type EventHandler interface {
@@ -12,6 +13,7 @@ type EventHandler interface {
 	OnTraffic(c Conn) error
 	OnOpen(c Conn) error
 	OnShutdown(mr *MainReactor) error
+	OnBoot(mr *MainReactor) error
 }
 
 var (
@@ -19,32 +21,39 @@ var (
 	ErrClose = errors.New("Close")
 	//shutdown the reactor
 	ErrShutdown = errors.New("Shutdown")
+	//peer close the connection before writting completely
+	ErrClosedWhenWritting = errors.New("Closed when writting")
 )
 
 type BuiltinEventHandler struct {
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnConn(c Conn) error {
-	log.Println("OnConn triggered ", c.Fd())
+	log.Info("OnConn triggered ", c.Fd())
 	return nil
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnClose(c Conn) error {
-	log.Println("OnClose triggered ", c.Fd())
+	log.Info("OnClose triggered ", c.Fd())
 	return nil
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnTraffic(c Conn) error {
-	log.Println("OnClose triggered ", c.Fd())
+	log.Debug("OnClose triggered ", c.Fd())
 	return nil
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnOpen(c Conn) error {
-	log.Fatalln("OnOpen triggered ", c.Fd())
+	log.Info("OnOpen triggered ", c.Fd())
 	return nil
 }
 
 func (builtinEventHandler BuiltinEventHandler) OnShutdown(mr *MainReactor) error {
-	log.Fatalln("OnShutdown triggered ")
+	log.Info("OnShutdown triggered ")
+	return nil
+}
+
+func (builtinEventHandler BuiltinEventHandler) OnBoot(mr *MainReactor) error {
+	log.Info("OnBoot triggered ")
 	return nil
 }
