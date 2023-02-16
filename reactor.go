@@ -296,7 +296,7 @@ func (sr *SubReactor) read(c *conn) error {
 	err = (**sr.eventHandlerPP).OnTraffic(c)
 	if err != nil {
 		if err == ErrClose {
-			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
+			log.Debug("try to close ", c.RemoteAddr().String(), "After read from", c.RemoteAddr().String(), "error: ", err)
 			sr.closeConn(c)
 		}
 		if err == ErrShutdown {
@@ -334,7 +334,7 @@ func (sr *SubReactor) write(c *conn) error {
 		// execute AfterWritten callback
 		if cur != nil {
 			if cur.AfterWritten != nil {
-				cur.AfterWritten(c)
+				err = cur.AfterWritten(c)
 			}
 		} else {
 			return errors.New("try to write a nil asyncWriteQueue")
@@ -342,7 +342,6 @@ func (sr *SubReactor) write(c *conn) error {
 		// iterate the asyncTaskQueue
 		if c.asyncTaskQueue.Empty() {
 			c.reactor.poller.ModRead(c.Fd())
-			return errors.New("empty queue")
 		} else {
 			c.outboundBuffer = c.asyncTaskQueue.Peek().data
 		}
@@ -350,7 +349,7 @@ func (sr *SubReactor) write(c *conn) error {
 		//write the left data
 		c.outboundBuffer = c.outboundBuffer[n:]
 	}
-	return nil
+	return err
 }
 
 func (poller *Poller) AddPollRead(pafd int) error {
@@ -391,6 +390,7 @@ func (sr *SubReactor) closeConn(c Conn) error {
 		log.Info("successfully delete and clode connection from ", c.RemoteAddr().String())
 		return nil
 	}
+	c = nil
 	return errors.New(err0.Error() + "&" + err1.Error())
 }
 

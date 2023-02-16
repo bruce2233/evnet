@@ -2,6 +2,9 @@ package evnet
 
 import (
 	"net/http"
+	"os"
+	"runtime/pprof"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,22 +38,31 @@ func (hs *HttpServer) OnTraffic(c Conn) error {
 		c.Write([]byte("Internal Server Error"))
 		return ErrClose
 	}
+	if string(hc.parser.Path) == "/close" {
+		return ErrShutdown
+	}
 	hc.appendResponse()
 	bodyLen := int(hc.parser.ContentLength())
 	if bodyLen == -1 {
 		bodyLen = 0
 	}
 	// buf = buf[headerOffset+bodyLen:]
+	hc.buf = append(hc.buf, "Content-Length: "+strconv.Itoa(len(hc.parser.Path))+"\r\n\r\n"+string(hc.parser.Path)...)
+	println(string(hc.buf))
+	// hc.buf = append(hc.buf, "Content-Length: 12\r\n\r\nHello World!"...)
+	c.AsyncWrite(hc.buf, func(c Conn) error {
+		// c.Close()
 
-	c.AsyncWrite(hc.buf, nil)
+		return nil
+	})
 	hc.buf = hc.buf[:0]
 	return nil
 }
 
 func (hc *httpCodec) appendResponse() {
 	hc.buf = append(hc.buf, "HTTP/1.1 200 OK\r\nServer: evnet\r\nContent-Type: text/plain\r\nDate: "...)
-	hc.buf = time.Now().AppendFormat(hc.buf, "Mon, 02 Jan 2006 15:04:05 GMT")
-	hc.buf = append(hc.buf, "\r\nContent-Length: 12\r\n\r\nHello World!"...)
+	hc.buf = time.Now().AppendFormat(hc.buf, "Mon, 02 Jan 2006 15:04:05 GMT\r\n")
+	// hc.buf = append(hc.buf, "Content-Length: 12\r\n\r\nHello World!"...)
 }
 
 func (hs *HttpServer) OnOpen(c Conn) error {
@@ -64,6 +76,11 @@ func (hs *HttpServer) OnOpen(c Conn) error {
 }
 
 func TestHttpBench(t *testing.T) {
+	f, _ := os.OpenFile("cpu.pprof", os.O_CREATE|os.O_RDWR, 0644)
+	defer f.Close()
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+	defer println("defer works")
 	hs := new(HttpServer)
 	Run(hs, "tcp://192.168.87.141:9000", WithLogLevel(log.WarnLevel))
 }
@@ -74,6 +91,10 @@ func TestWriteHTTPRequest(t *testing.T) {
 		t.Log(err)
 	}
 	t.Log(resp)
+}
+
+func TestShutdown(t *testing.T) {
+
 }
 
 func TestWildCatParse(t *testing.T) {
