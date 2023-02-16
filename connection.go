@@ -26,6 +26,8 @@ type Conn interface {
 	SetContext(ctx interface{})
 
 	Context() interface{}
+
+	Close() error
 }
 
 type Writer interface {
@@ -105,6 +107,11 @@ func (c *conn) Next(n int) (buf []byte, err error) {
 	}
 	defer c.Discard(-1)
 	return nil, nil
+}
+
+//clsoe connection
+func (c *conn) Close() error {
+	return ErrClose
 }
 
 func (c *conn) Discard(n int) (int, error) {

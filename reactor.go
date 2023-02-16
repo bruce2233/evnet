@@ -296,7 +296,7 @@ func (sr *SubReactor) read(c *conn) error {
 	err = (**sr.eventHandlerPP).OnTraffic(c)
 	if err != nil {
 		if err == ErrClose {
-			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
+			log.Debug("try to close ", c.RemoteAddr().String(), "After read from", c.RemoteAddr().String(), "error: ", err)
 			sr.closeConn(c)
 		}
 		if err == ErrShutdown {
