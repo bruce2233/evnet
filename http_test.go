@@ -1,6 +1,7 @@
 package evnet
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -82,19 +83,30 @@ func TestHttpBench(t *testing.T) {
 	defer pprof.StopCPUProfile()
 	defer println("defer works")
 	hs := new(HttpServer)
-	Run(hs, "tcp://192.168.87.141:9000", WithLogLevel(log.WarnLevel))
+	Run(hs, "tcp://127.0.0.1:9000", WithLogLevel(log.InfoLevel))
 }
 
 func TestWriteHTTPRequest(t *testing.T) {
-	resp, err := http.Get("http://localhost:9000/index.html")
+	resp, err := http.Get("http://127.0.0.1:9000/index.html")
 	if err != nil {
 		t.Log(err)
 	}
 	t.Log(resp)
 }
 
-func TestShutdown(t *testing.T) {
-
+func TestTCPWrite(t *testing.T) {
+	conn, err := net.Dial("tcp", "127.0.0.1:9000")
+	defer conn.Close()
+	if err != nil {
+		t.Log(err)
+	}
+	b := make([]byte, 1024)
+	conn.Write([]byte("Hello World!"))
+	n, err := conn.Read(b)
+	if err != nil {
+		t.Log(err)
+	}
+	println(b[:n])
 }
 
 func TestWildCatParse(t *testing.T) {

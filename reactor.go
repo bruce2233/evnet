@@ -29,7 +29,7 @@ import (
 )
 
 var subReactorBufferCap = 64 * 1024
-var SubReactorsNum = 10
+var SubReactorsNum = 8
 
 type MainReactor struct {
 	subReactors    []*SubReactor
@@ -205,6 +205,11 @@ func (mr *MainReactor) signalShutdown() {
 func (mr *MainReactor) stop() {
 	(**mr.eventHandlerPP).OnShutdown(mr)
 	//close sr goroutine here, working...
+	for _, sr := range mr.subReactors {
+		unix.Close(sr.poller.Fd)
+	}
+	mr.poller.Delete(mr.listener.Fd)
+	unix.Close(mr.listener.Fd)
 }
 
 func (sr *SubReactor) Loop() error {
