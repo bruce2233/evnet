@@ -283,11 +283,11 @@ func (sr *SubReactor) read(c *conn) error {
 
 	if err != nil || n == 0 {
 		if err == unix.EAGAIN {
-			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
+			log.Debug("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
 			sr.closeConn(c)
 			return err
 		} else {
-			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
+			log.Info("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
 			sr.closeConn(c)
 			return unix.ECONNRESET
 		}
