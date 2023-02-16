@@ -28,6 +28,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var subReactorBufferCap = 64 * 1024
+var SubReactorsNum = 10
+
 type MainReactor struct {
 	subReactors    []*SubReactor
 	poller         *Poller
@@ -40,17 +43,19 @@ type SubReactor struct {
 	mr             *MainReactor
 	poller         *Poller
 	eventHandlerPP **EventHandler
-	connections    map[int]*conn
+	connections    connRWMap
 	buffer         []byte
+}
+
+type connRWMap struct {
+	mapData map[int]*conn
+	*sync.RWMutex
 }
 
 type PollAttachment struct {
 	Fd    int
 	Event unix.EpollEvent
 }
-
-var subReactorBufferCap = 64 * 1024
-var SubReactorsNum = 5
 
 //create a new poller
 func OpenPoller() (poller *Poller, err error) {
@@ -98,7 +103,11 @@ func (mr *MainReactor) Init(proto, addr string) error {
 	for i := 0; i < SubReactorsNum; i++ {
 		newSr := &SubReactor{}
 		newSr.poller, err = OpenPoller()
-		newSr.connections = make(map[int]*conn)
+		// newSr.connections = make(map[int]*conn)
+		newSr.connections = connRWMap{
+			RWMutex: &sync.RWMutex{},
+			mapData: make(map[int]*conn),
+		}
 		newSr.buffer = make([]byte, subReactorBufferCap)
 		newSr.eventHandlerPP = mr.eventHandlerPP
 		newSr.mr = mr
@@ -169,7 +178,9 @@ func (mainReactor *MainReactor) Loop() {
 			os.NewSyscallError("AcceptSocket Err", err)
 			//convert from nfd, tcpAddr to a socket
 			// err = mainReactor.subReactors[0].poller.AddPollRead(int(v.Fd))
-			idx := rand.Intn(2)
+
+			//working...
+			idx := rand.Intn(SubReactorsNum)
 			laddr := mainReactor.listener.addr
 			c, _ := NewConn(nfd, laddr, raddr)
 			log.Debug("mainReactor accept connection ", raddr, "to subReactor ", idx)
@@ -203,15 +214,21 @@ func (sr *SubReactor) Loop() error {
 		for _, event := range eventList {
 			log.Debug("events: ", event.Events)
 			if event.Events&OutEvents != 0 {
-				c := sr.connections[int(event.Fd)]
+				c, ok := sr.connections.Load(int(event.Fd))
+				if !ok {
+					log.Error("can't load event fd when out")
+				}
 				log.Debug("subReactor OutEvents from: ", c.RemoteAddr())
 				sr.write(c)
 			}
 
 			if event.Events&InEvents != 0 {
-				// closeConn(sr,
 				// sr.read(sr.connections[(int)(event.Fd)])
-				c := sr.connections[int(event.Fd)]
+				c, ok := sr.connections.Load(int(event.Fd))
+				if !ok {
+					log.Error("can't load event fd when in")
+					continue
+				}
 				// log.Printf(, c.RemoteAddr())
 				log.Printf("\x1b[0;%dm%s\x1b[0m%s\x1b[0;%dm%v\x1b[0m\n", 32, "debug:  ", "subReactor InEvents from: ", 32, c.RemoteAddr())
 				err := sr.read(c)
@@ -263,21 +280,23 @@ func (sr *SubReactor) read(c *conn) error {
 	n, err := unix.Read(c.Fd(), sr.buffer)
 	log.Debug("sr read n:", n)
 	// log.Println("sr.buffer len():", len(sr.buffer))
-	if n == 0 {
-		sr.closeConn(c)
-	}
-	if err != nil {
+
+	if err != nil || n == 0 {
 		if err == unix.EAGAIN {
-			log.Warn(unix.EAGAIN)
-			return unix.EAGAIN
+			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
+			sr.closeConn(c)
+			return err
+		} else {
+			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
+			sr.closeConn(c)
+			return unix.ECONNRESET
 		}
-		return unix.ECONNRESET
 	}
 	c.inboundBuffer = sr.buffer[:n]
 	err = (**sr.eventHandlerPP).OnTraffic(c)
 	if err != nil {
 		if err == ErrClose {
-			log.Info(ErrClose)
+			log.Warn("try to close ", c.RemoteAddr().String(), "when read: ", n, "error: ", err)
 			sr.closeConn(c)
 		}
 		if err == ErrShutdown {
@@ -294,11 +313,18 @@ func (sr *SubReactor) write(c *conn) error {
 	buffedLen := len(c.outboundBuffer)
 
 	n, err := unix.Write(c.Fd(), c.outboundBuffer)
+	if n == -1 {
+		// log.Warn("subReactor try to write a closed conn")
+		log.Info("try to close ", c.RemoteAddr().String(), "when write: ", n, "error: ", err)
+
+		// sr.closeConn(c)
+		return ErrClosedWhenWritting
+	}
 	if err != nil {
-		log.Warn("subReactor Write error")
-		if n == -1 {
-			log.Warn("subReactor try to write a closed conn")
-		}
+		log.Info("try to close ", c.RemoteAddr().String(), "when write: ", n, "error: ", err)
+		// if n == -1 {
+		// 	log.Warn("subReactor try to write a closed conn")
+		// }
 		sr.closeConn(c)
 	}
 
@@ -343,18 +369,29 @@ func registerConn(sr *SubReactor, connItf Conn) error {
 	// subReactor[]
 	c := connItf.(*conn)
 	(*(*sr.eventHandlerPP)).OnOpen(c)
-	sr.connections[connItf.Fd()] = c
+	// atomic.
+	sr.connections.Store(connItf.Fd(), c)
 	c.reactor = sr
 	sr.poller.AddPollRead(connItf.Fd())
 	return nil
 }
 
-func (sr *SubReactor) closeConn(c Conn) {
+func (sr *SubReactor) closeConn(c Conn) error {
 	//working
 	(**sr.eventHandlerPP).OnClose(c)
-	unix.Close(c.Fd())
-	sr.poller.Delete(c.Fd())
-	delete(sr.connections, c.Fd())
+	err0 := sr.poller.Delete(c.Fd())
+	if err0 != nil {
+		log.Error("fail to delete conneciton from ", c.RemoteAddr().String())
+	}
+	err1 := unix.Close(c.Fd())
+	if err1 != nil {
+		log.Error("fail to close conneciton from ", c.RemoteAddr().String())
+	}
+	if err0 == nil && err1 == nil {
+		log.Info("successfully delete and clode connection from ", c.RemoteAddr().String())
+		return nil
+	}
+	return errors.New(err0.Error() + "&" + err1.Error())
 }
 
 func AcceptSocket(fd int) (int, net.Addr, error) {
@@ -378,4 +415,23 @@ func (poller *Poller) Polling() []unix.EpollEvent {
 	// log.Println("poller start waiting", poller.Fd)
 	eventList := polling(poller.Fd)
 	return eventList
+}
+
+func (crwm *connRWMap) Load(key int) (*conn, bool) {
+	crwm.RWMutex.RLock()
+	c, ok := crwm.mapData[key]
+	crwm.RWMutex.RUnlock()
+	return c, ok
+}
+
+func (crwm *connRWMap) Store(key int, c *conn) {
+	crwm.RWMutex.Lock()
+	crwm.mapData[key] = c
+	crwm.RWMutex.Unlock()
+}
+
+func (crwm *connRWMap) Delete(key int) {
+	crwm.RWMutex.Lock()
+	delete(crwm.mapData, key)
+	crwm.RWMutex.Unlock()
 }
