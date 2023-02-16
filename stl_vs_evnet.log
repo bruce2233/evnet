@@ -1,0 +1,159 @@
+Average performance of standard net/http:
+
+Requests/sec: 70169.3, 142578.7
+
+
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    18.79ms   22.95ms 291.01ms   88.42%
+    Req/Sec     6.23k     2.06k   18.99k    75.63%
+  744175 requests in 10.10s, 174.59MB read
+Requests/sec:  73712.56
+Transfer/sec:     17.29MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    20.81ms   24.07ms 276.76ms   87.50%
+    Req/Sec     5.38k     2.02k   31.61k    82.42%
+  643790 requests in 10.10s, 151.04MB read
+Requests/sec:  63747.16
+Transfer/sec:     14.96MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    18.72ms   21.78ms 216.44ms   88.14%
+    Req/Sec     6.07k     1.94k   15.43k    74.43%
+  727531 requests in 10.08s, 170.68MB read
+Requests/sec:  72177.04
+Transfer/sec:     16.93MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    19.61ms   21.90ms 294.54ms   88.17%
+    Req/Sec     5.54k     1.80k   28.13k    80.37%
+  662129 requests in 10.09s, 155.34MB read
+Requests/sec:  65621.77
+Transfer/sec:     15.40MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    19.76ms   23.02ms 264.57ms   87.71%
+    Req/Sec     5.79k     1.95k   17.37k    73.78%
+  691885 requests in 10.09s, 162.32MB read
+Requests/sec:  68563.20
+Transfer/sec:     16.09MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    15.69ms   19.19ms 212.84ms   88.19%
+    Req/Sec     7.54k     2.39k   25.41k    69.19%
+  903398 requests in 10.10s, 211.94MB read
+Requests/sec:  89444.06
+Transfer/sec:     20.98MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    17.58ms   19.52ms 217.61ms   88.52%
+    Req/Sec     6.11k     1.82k   19.81k    78.58%
+  729703 requests in 10.09s, 171.19MB read
+Requests/sec:  72298.47
+Transfer/sec:     16.96MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    20.00ms   24.12ms 364.34ms   88.38%
+    Req/Sec     5.73k     1.53k   27.89k    80.07%
+  689568 requests in 10.10s, 161.78MB read
+Requests/sec:  68272.69
+Transfer/sec:     16.02MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    19.09ms   20.75ms 255.53ms   87.72%
+    Req/Sec     5.63k     1.38k   16.16k    74.85%
+  675263 requests in 10.10s, 158.42MB read
+Requests/sec:  66856.18
+Transfer/sec:     15.68MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    22.35ms   27.65ms 307.65ms   89.16%
+    Req/Sec     5.16k     1.44k   19.57k    74.28%
+  615816 requests in 10.09s, 144.47MB read
+Requests/sec:  61003.49
+Transfer/sec:     14.31MB
+
+
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.17ms    9.11ms 122.86ms   86.27%
+    Req/Sec    13.12k     4.48k   29.11k    68.58%
+  1572156 requests in 10.10s, 193.41MB read
+Requests/sec: 155726.31
+Transfer/sec:     19.16MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.77ms    9.03ms 103.32ms   85.64%
+    Req/Sec    11.35k     2.81k   28.07k    75.49%
+  1359244 requests in 10.09s, 167.22MB read
+Requests/sec: 134681.72
+Transfer/sec:     16.57MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.64ms    9.21ms 112.43ms   85.74%
+    Req/Sec    11.91k     3.43k   26.76k    73.07%
+  1425165 requests in 10.10s, 175.33MB read
+Requests/sec: 141146.87
+Transfer/sec:     17.36MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.81ms    9.15ms 109.95ms   85.60%
+    Req/Sec    11.37k     3.31k   28.29k    74.79%
+  1357161 requests in 10.10s, 166.96MB read
+Requests/sec: 134358.50
+Transfer/sec:     16.53MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.67ms    9.19ms  87.67ms   85.96%
+    Req/Sec    11.71k     3.26k   25.67k    74.43%
+  1395281 requests in 10.09s, 171.65MB read
+Requests/sec: 138220.05
+Transfer/sec:     17.00MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.30ms    8.72ms  89.77ms   85.31%
+    Req/Sec    12.27k     3.49k   29.51k    73.52%
+  1466125 requests in 10.10s, 180.37MB read
+Requests/sec: 145147.45
+Transfer/sec:     17.86MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.87ms    9.33ms 107.86ms   85.72%
+    Req/Sec    11.39k     2.65k   25.82k    71.78%
+  1360971 requests in 10.10s, 167.43MB read
+Requests/sec: 134808.67
+Transfer/sec:     16.58MB
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     7.73ms    8.45ms  91.25ms   86.03%
+    Req/Sec    13.48k     3.85k   27.58k    67.34%
+  1611863 requests in 10.10s, 198.30MB read
+Requests/sec: 159597.95
+Running 10s test @ http://192.168.87.141:9000/index.html
+  12 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     8.51ms    8.82ms  86.36ms   85.17%
+    Req/Sec    11.88k     3.10k   30.88k    75.08%
+  1424633 requests in 10.10s, 175.26MB read
+Requests/sec: 141062.35
+Transfer/sec:     17.35MB
+
