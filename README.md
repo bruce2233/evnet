@@ -66,3 +66,6 @@ The average performance of evnet in the condition of 12 threads and 1000 connect
 Requests/sec: 160690.88
 Transfer/sec:     19.77MB
 ```
+
+## pprof analysis
+` go tool pprof -http=:9999 cpu.pprof`
