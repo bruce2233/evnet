@@ -42,7 +42,10 @@ func (hs *HttpServer) OnTraffic(c Conn) error {
 	}
 	// buf = buf[headerOffset+bodyLen:]
 
-	c.AsyncWrite(hc.buf, nil)
+	c.AsyncWrite(hc.buf, func(c Conn) error {
+		c.Close()
+		return nil
+	})
 	hc.buf = hc.buf[:0]
 	return nil
 }
