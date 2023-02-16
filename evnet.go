@@ -8,14 +8,24 @@ import (
 )
 
 func Run(eventHandler EventHandler, protoAddr string, optList ...SetOption) {
-	opts := loadOptions(optList)
-	if opts.LogPath != "" {
-		outputFile, err := os.OpenFile(opts.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0777)
+	optArg := loadOptions(optList)
+
+	//set Default optArg
+	if optArg.LogPath != "" {
+		outputFile, err := os.OpenFile(optArg.LogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0777)
 		if err != nil {
 			log.Error("log file open error")
 		}
 		log.SetOutput(outputFile)
+		wd, _ := os.Getwd()
+		log.Info("save log file at", wd, outputFile.Name())
 	}
+	log.SetLevel(optArg.LogLevel)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+		ForceQuote:    true,
+		ForceColors:   true,
+	})
 	// log.SetFlags(log.Llongfile | log.Lmicroseconds | log.Ldate)
 	//options working
 	network, address := parseProtoAddr(protoAddr)
