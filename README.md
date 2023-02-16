@@ -23,7 +23,7 @@ type MyHandler struct {
 	BuiltinEventHandler
 }
 
-func (mh MyHandler) OnConn(c Conn) error{
+func (mh MyHandler) OnTraffic(c Conn) error{
 	p, err := c.Next(-1)
     if err!=nil{
         return evnet.ErrClose
